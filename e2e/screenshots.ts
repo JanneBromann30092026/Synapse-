@@ -90,7 +90,41 @@ async function swipeRow(page: Page) {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
+/** Saves a test key and runs the connection test against a mocked API (no real call). */
+async function settingsWithKey(page: Page) {
+  await page.route('https://api.anthropic.com/**', async (route) => {
+    const headers = {
+      'access-control-allow-origin': '*',
+      'access-control-allow-headers': '*',
+      'content-type': 'application/json',
+    };
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      headers,
+      body: JSON.stringify({
+        type: 'model',
+        id: 'claude-haiku-4-5-20251001',
+        display_name: 'Claude Haiku 4.5',
+        created_at: '2025-10-01T00:00:00Z',
+      }),
+    });
+  });
+  const ai = page.getByTestId('settings-ai');
+  await ai.getByLabel('API-Key', { exact: true }).fill('sk-ant-api03-screenshot-0123456789abcdef');
+  await ai.getByRole('button', { name: 'Key speichern' }).click();
+  await ai.getByTestId('api-key-status').filter({ hasText: 'Key hinterlegt' }).waitFor();
+  await ai.getByRole('button', { name: 'Verbindung testen' }).click();
+  await ai.getByTestId('connection-result').waitFor();
+  await page.waitForTimeout(3000); // let the toast disappear
+}
+
 const SHOTS: Shot[] = [
+  { route: '/settings', name: 'settings', scroll: true },
+  { route: '/settings', name: 'settings-ai', prepare: settingsWithKey },
   { route: '/projects', name: 'projects-empty' },
   { route: '/dev/ui', name: 'dev-ui', prepare: enableDevModeWithDemoData },
   { route: '/projects', name: 'projects-grid' },
