@@ -71,7 +71,7 @@ Touch-first (iPad):
 
 ## Roadmap
 - [x] 0 Projektkontext (CLAUDE.md)
-- [ ] 1 Projekt-Setup, PWA & Deployment
+- [x] 1 Projekt-Setup, PWA & Deployment
 - [ ] 2 Datenbank & Datenmodell
 - [ ] 3 Design-System & App-Shell
 - [ ] 4 Projektverwaltung
@@ -90,3 +90,9 @@ Touch-first (iPad):
 
 ## Entscheidungen & Notizen
 - Ursprünglich als Electron-Desktop-App geplant; umgestellt auf PWA, weil nur ein iPad zur Verfügung steht. Folgen: IndexedDB statt SQLite, kein Main-Prozess/IPC, KI-Aufruf direkt aus dem Browser, kein Ollama, Backups als Export statt Dateikopie.
+- Schritt 1: Aktuelle Versionen gewählt: Vite 8, React 19, Tailwind 4 (@tailwindcss/vite, keine tailwind.config), react-router 8 (Import aus "react-router", nicht react-router-dom), zod 4, Vitest 5, ESLint 10 (Flat Config, type-aware). TypeScript ist auf ~6.0 gepinnt, weil typescript-eslint < 6.1 verlangt. @playwright/test exakt 1.56.1, passend zum vorinstallierten Chromium (chromium-1194) im Cloud-Container.
+- CSP wird nur im Production-Build per Vite-Plugin (vite.config.ts, `cspPlugin`) als erstes meta-Tag eingefügt; der Dev-Server braucht Inline-Skripte. Aktuell kein 'unsafe-inline' (auch nicht für Styles). frame-ancestors fehlt bewusst (in meta-Tags wirkungslos, erzeugt Konsolenfehler).
+- Service Worker: vite-plugin-pwa generateSW, registerType "prompt" – Hinweis "Update verfügbar" mit "Neu laden" (src/app/UpdatePrompt.tsx), stündliche Update-Prüfung, einmaliger Hinweis "offline verfügbar".
+- Icons: public/icons/favicon.svg ist die Quelle; PNGs mit `npm run icons` (sharp) erzeugen und einchecken.
+- Playwright: iPad-Profile in e2e/ipad.ts (Chromium mit iPad-User-Agent, de-DE, Europe/Berlin). `npm run e2e` baut und startet vite preview selbst; Smoke-Test prüft Konsolenfehler, Manifest und Offline-Betrieb. `npm run screenshots` erzeugt screenshots/<name>-{landscape,portrait}-{dark,light}.png (Service Worker dort blockiert, damit kein Toast im Bild ist).
+- CI: .github/workflows/ci.yml (PRs: typecheck, lint, format:check, test, build, e2e), deploy.yml (Push auf main → GitHub Pages). Voraussetzung: Settings → Pages → Source "GitHub Actions".
