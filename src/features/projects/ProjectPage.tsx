@@ -2,17 +2,15 @@ import { useNavigate, useParams } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Button, EmptyState, IconButton, ProjectAvatar, Skeleton } from '@/components/ui';
 import { Page } from '@/app/shell/Page';
-import { useLiveData } from '@/data/live';
-import { projectsRepo } from '@/data/repositories';
 import { de } from '@/i18n/de';
+import { useProject } from './hooks';
 
 const t = de.pages.project;
 
 export function ProjectPage() {
   const { projectId = '' } = useParams();
   const navigate = useNavigate();
-  // null = not found; undefined = still loading.
-  const project = useLiveData(async () => (await projectsRepo.get(projectId)) ?? null, [projectId]);
+  const project = useProject(projectId);
   const back = (
     <IconButton
       icon={ArrowLeft}

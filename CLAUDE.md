@@ -74,7 +74,7 @@ Touch-first (iPad):
 - [x] 1 Projekt-Setup, PWA & Deployment
 - [x] 2 Datenbank & Datenmodell
 - [x] 3 Design-System & App-Shell
-- [ ] 4 Projektverwaltung
+- [x] 4 Projektverwaltung
 - [ ] 5 Karteikartenverwaltung
 - [ ] 6 Einstellungen & KI-Anbindung
 - [ ] 7 Bewertungs-Engine
@@ -113,3 +113,10 @@ Touch-first (iPad):
 - Lint (react-hooks 7 / React Compiler-Regeln): keine Komponenten aus Funktionsaufrufen in JSX (`const Icon = projectIcon(..)` → `ProjectAvatar` mit createElement), kein setState synchron im Effect, keine Ref-Zugriffe im Render. Fehler mit Namen „NotFoundError“ meiden (siehe oben).
 - Overlays (Modal, BottomSheet, ActionMenu, Tooltip) rendern per Portal in <body>; Fokus-Falle und Esc über `src/components/ui/hooks/`. BottomSheet schließt per Wischen am Griff/Kopf (dragControls), damit Inhalte scrollbar bleiben.
 - E2E prüft jetzt auch Konsolen-Warnungen, Navigation, Theme-Persistenz und Entwicklermodus. `npm run screenshots` erzeugt pro Variante projects, brain, settings(+Scroll), dev-ui(+Scroll), dev-modal, dev-sheet, dev-menu, projects-with-data.
+- Schritt 4 (Projekte): Drag & Drop mit dnd-kit (@dnd-kit/core + sortable; nicht im verbindlichen Stack, vom Schritt-Prompt vorgeschlagen). Sensoren: MouseSensor (6 px), TouchSensor (350 ms Long-Press, 8 px Toleranz, Scrollen bleibt frei), KeyboardSensor (Leertaste). Long-Press ohne Bewegung öffnet das ActionMenu (Auswertung in onDragEnd), Long-Press + Ziehen sortiert – wie iOS-Kontextmenüs, ohne zwei konkurrierende Timer. Rechtsklick öffnet das Menü ebenfalls.
+- dnd-kit stoppt den Klick nach einem Drag in der Document-Capture-Phase (React sieht ihn nie), verhindert aber nicht die Link-Navigation → eigener `click`-Listener auf `window` (Capture) in ProjectsPage verhindert sie während/kurz nach dem Ziehen. Buttons in der Karte stoppen mousedown/touchstart, damit sie kein Ziehen starten.
+- motion-`layout` (Hinzufügen/Löschen/Filtern) ist während des Sortierens aus, sonst kämpft es mit den dnd-kit-Transforms. Neue Reihenfolge wird optimistisch angezeigt, bis liveQuery die gespeicherte sortOrder liefert; bei Suche/Filter behalten ausgeblendete Projekte ihre Plätze (`mergeVisibleOrder` in src/core/projectList.ts).
+- Projektkarte: ganzflächiger Link als Overlay (keine verschachtelten Buttons in Links), Inhalte `pointer-events-none`, Buttons darüber. `ProjectCardView` dient auch als Live-Vorschau im Dialog.
+- Dialoge (Modal, BottomSheet) weichen der Bildschirmtastatur über `useKeyboardInset` (visualViewport) aus.
+- Demo-Daten: /dev/ui → „Beispielprojekte anlegen“ (5 Projekte mit Karten und teils Lernsession; Inhalte in `de.dev.sampleProjects`).
+- E2E `e2e/projects.spec.ts`: Anlegen/Validierung/Bearbeiten/Archivieren/Löschen, Suche, Maus-Drag, echte Touch-Gesten per CDP (`Input.dispatchTouchEvent`: Long-Press → Menü, Long-Press + Ziehen → Sortieren).

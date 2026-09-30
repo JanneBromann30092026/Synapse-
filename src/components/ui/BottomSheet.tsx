@@ -4,6 +4,7 @@ import { de } from '@/i18n/de';
 import { fade, spring } from '@/styles/motion';
 import { useEscape } from './hooks/useEscape';
 import { useFocusTrap } from './hooks/useFocusTrap';
+import { useKeyboardInset } from './hooks/useKeyboardInset';
 import { Portal } from './Portal';
 
 export interface BottomSheetProps {
@@ -41,13 +42,18 @@ function SheetPanel({
   const dragControls = useDragControls();
   useFocusTrap(panel, true);
   useEscape(onClose, true);
+  const keyboardInset = useKeyboardInset();
 
   const onDragEnd = (_event: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) => {
     if (info.offset.y > CLOSE_OFFSET_PX || info.velocity.y > CLOSE_VELOCITY) onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      // Keeps the sheet above the on-screen keyboard.
+      style={keyboardInset ? { paddingBottom: keyboardInset } : undefined}
+    >
       <motion.div
         className="absolute inset-0 bg-overlay backdrop-blur-sm"
         initial={{ opacity: 0 }}
@@ -92,7 +98,7 @@ function SheetPanel({
             )}
           </div>
         </div>
-        {children && <div className="scroll-area px-6 pt-2 pb-2">{children}</div>}
+        {children && <div className="scroll-area min-h-0 px-6 pt-2 pb-2">{children}</div>}
         {footer && (
           <footer className="flex flex-wrap justify-end gap-2 px-6 pt-4 pb-6">{footer}</footer>
         )}
