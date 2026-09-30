@@ -26,6 +26,22 @@ test('start page loads without console errors', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('test project is stored and survives a reload', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await page.goto('./');
+  await expect(page.getByTestId('database-status')).toHaveText('Bereit');
+  await expect(page.getByTestId('project-count')).toHaveText('0');
+
+  await page.getByRole('button', { name: 'Testprojekt anlegen' }).click();
+  await expect(page.getByTestId('project-count')).toHaveText('1');
+  await page.getByRole('button', { name: 'Testprojekt anlegen' }).click();
+  await expect(page.getByTestId('project-count')).toHaveText('2');
+
+  await page.reload();
+  await expect(page.getByTestId('project-count')).toHaveText('2');
+  expect(errors).toEqual([]);
+});
+
 test('manifest is linked and valid', async ({ page, request }) => {
   await page.goto('./');
   const href = await page.locator('link[rel="manifest"]').getAttribute('href');

@@ -3,7 +3,7 @@
  * Usage: npm run screenshots  →  screenshots/*.png
  */
 import { mkdirSync } from 'node:fs';
-import { chromium, type BrowserContextOptions } from '@playwright/test';
+import { chromium, type BrowserContextOptions, type Page } from '@playwright/test';
 import { preview } from 'vite';
 import { IPAD_LANDSCAPE, IPAD_PORTRAIT, PREVIEW_URL } from './ipad.ts';
 
@@ -11,9 +11,21 @@ interface Shot {
   /** Hash route, e.g. "/" or "/projects". */
   route: string;
   name: string;
+  /** Optional interaction before the screenshot (e.g. creating demo data). */
+  prepare?: (page: Page) => Promise<void>;
 }
 
-const SHOTS: Shot[] = [{ route: '/', name: 'start' }];
+const SHOTS: Shot[] = [
+  { route: '/', name: 'start' },
+  {
+    route: '/',
+    name: 'start-with-project',
+    prepare: async (page) => {
+      await page.getByRole('button', { name: 'Testprojekt anlegen' }).click();
+      await page.getByTestId('project-count').filter({ hasNotText: '0' }).waitFor();
+    },
+  },
+];
 
 const VARIANTS: { name: string; options: BrowserContextOptions }[] = [
   { name: 'landscape-dark', options: { ...IPAD_LANDSCAPE, colorScheme: 'dark' } },
@@ -37,6 +49,7 @@ try {
     const page = await context.newPage();
     for (const shot of SHOTS) {
       await page.goto(`${PREVIEW_URL}#${shot.route}`, { waitUntil: 'networkidle' });
+      await shot.prepare?.(page);
       await page.waitForTimeout(600);
       const file = new URL(`${shot.name}-${variant.name}.png`, outDir).pathname;
       await page.screenshot({ path: file });

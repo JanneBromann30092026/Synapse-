@@ -106,5 +106,7 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     environment: 'node',
+    // In-memory IndexedDB for repository tests.
+    setupFiles: ['fake-indexeddb/auto'],
   },
 });
