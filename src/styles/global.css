@@ -1,0 +1,39 @@
+@import 'tailwindcss';
+
+/* Design tokens follow in step 3 (src/styles/tokens.css). */
+
+@layer base {
+  html {
+    color-scheme: dark light;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+    font-family:
+      system-ui,
+      -apple-system,
+      'Hiragino Sans',
+      'Noto Sans JP',
+      sans-serif;
+    background: #f5f6f8;
+    color: #10131a;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body {
+      background: #0b0d12;
+      color: #eceef3;
+    }
+  }
+}
