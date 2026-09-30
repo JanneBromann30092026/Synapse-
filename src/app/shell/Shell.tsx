@@ -1,0 +1,91 @@
+import { lazy, Suspense } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { AnimatePresence, motion } from 'motion/react';
+import { Spinner, toast } from '@/components/ui';
+import { BrainPage } from '@/features/brain/BrainPage';
+import { ProjectPage } from '@/features/projects/ProjectPage';
+import { ProjectsPage } from '@/features/projects/ProjectsPage';
+import { SettingsPage } from '@/features/settings/SettingsPage';
+import { StatsPage } from '@/features/stats/StatsPage';
+import { StudyPage } from '@/features/study/StudyPage';
+import { de } from '@/i18n/de';
+import { easeOut } from '@/styles/motion';
+import { useReducedMotion } from '@/styles/useReducedMotion';
+import { useAppStatus } from '../useAppStatus';
+import { useHotkeys } from '../hooks/useHotkeys';
+import { useMediaQuery, WIDE_LAYOUT_QUERY } from '../hooks/useMediaQuery';
+import { Sidebar } from './Sidebar';
+import { TabBar } from './TabBar';
+
+// Developer tools are rarely used: separate chunk.
+const DevUiPage = lazy(() => import('@/features/dev/DevUiPage'));
+
+function DatabaseErrorBanner() {
+  const database = useAppStatus((s) => s.database);
+  if (!database || database.ok) return null;
+  return (
+    <p
+      role="alert"
+      data-testid="database-error"
+      className="mx-4 mt-[max(1rem,env(safe-area-inset-top))] rounded-lg bg-danger-soft px-4 py-3 text-base text-danger"
+    >
+      {de.database.errors[database.reason]}
+    </p>
+  );
+}
+
+function AnimatedRoutes() {
+  const location = useLocation();
+  const reduced = useReducedMotion();
+  const offset = reduced ? 0 : 10;
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location.pathname}
+        className="h-full"
+        initial={{ opacity: 0, y: offset }}
+        animate={{ opacity: 1, y: 0, transition: { duration: 0.25, ease: easeOut } }}
+        exit={{ opacity: 0, y: -offset / 2, transition: { duration: 0.12, ease: 'easeIn' } }}
+      >
+        <Suspense
+          fallback={
+            <div className="flex h-full items-center justify-center text-fg-muted">
+              <Spinner size={28} label={de.ui.loading} />
+            </div>
+          }
+        >
+          <Routes location={location}>
+            <Route path="/" element={<Navigate to="/projects" replace />} />
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/projects/:projectId" element={<ProjectPage />} />
+            <Route path="/study/:projectId" element={<StudyPage />} />
+            <Route path="/brain" element={<BrainPage />} />
+            <Route path="/stats" element={<StatsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/dev/ui" element={<DevUiPage />} />
+            <Route path="*" element={<Navigate to="/projects" replace />} />
+          </Routes>
+        </Suspense>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+export function Shell() {
+  const wide = useMediaQuery(WIDE_LAYOUT_QUERY);
+
+  useHotkeys([{ combo: 'mod+k', handler: () => toast.info(de.hotkeys.searchSoon) }]);
+
+  return (
+    <div className="relative flex h-dvh overflow-hidden" data-layout={wide ? 'wide' : 'narrow'}>
+      {wide && <Sidebar />}
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        <DatabaseErrorBanner />
+        <main className="relative min-h-0 flex-1">
+          <AnimatedRoutes />
+        </main>
+        {!wide && <TabBar />}
+      </div>
+    </div>
+  );
+}
