@@ -76,7 +76,7 @@ Touch-first (iPad):
 - [x] 3 Design-System & App-Shell
 - [x] 4 Projektverwaltung
 - [x] 5 Karteikartenverwaltung
-- [ ] 6 Einstellungen & KI-Anbindung
+- [x] 6 Einstellungen & KI-Anbindung
 - [ ] 7 Bewertungs-Engine
 - [ ] 8 Lernmodus – Session-Logik
 - [ ] 9 Lernmodus – UI & Animationen
@@ -126,3 +126,10 @@ Touch-first (iPad):
 - Kartenliste: Wischen nach links als eigene Pointer-Geste (CardRow) mit `touch-pan-y` (vertikales Scrollen bleibt nativ). Nicht motion-`drag` verwenden: es misst die Position einmal und setzt nach Filtern/Bearbeiten einen veralteten translateY-Versatz; die Aktionen darunter sind unsichtbar, solange die Zeile geschlossen ist (sonst schimmern sie an den runden Ecken durch). Nur eine Zeile gleichzeitig offen. Raster-Karten drehen per 3D-Flip (Tailwind `perspective-[…]`, `transform-3d`, `backface-hidden`).
 - Tastaturkürzel auf der Projektseite: „n“ öffnet den Editor.
 - E2E `e2e/cards.spec.ts`: Schnellerfassung inkl. IME-Events, Tags, Duplikate, Demo-Daten (idempotent), Suche, Tag-Filter, Bearbeiten, Wischen (echte Touch-Events per CDP), Raster-Flip, Auswahl verschieben/löschen.
+- Schritt 6 (KI & Einstellungen): `src/services/ai/` = `types.ts` (AiProvider, GradeRequest/Result, `AiError` mit Code), `config.ts`, `gradingPrompt.ts` (deutscher System-Prompt, Tool `submit_grade` mit `strict: true`, zod-Prüfung), `anthropicProvider.ts`, `apiKey.ts`, `index.ts` (`getAiProvider`, `testAiConnection`). Das SDK wird per dynamischem Import geladen (eigener Chunk, ~195 KB), nur wenn die KI gebraucht wird.
+- CSP: `connect-src 'self' https://api.anthropic.com` (vite.config.ts). Hugging Face kommt erst in Schritt 12 dazu.
+- tool_choice: Haiku 4.5 bekommt erzwungenes `{type: 'tool'}`. Opus 5.5, Sonnet 5.5, Fable 5.1, Mythos 5.1 lehnen erzwungene Tool-Wahl mit 400 ab → `auto` + Anweisung im Prompt. Unbekannte Modelle: erst erzwungen, nach einem 400 mit „tool_choice“ dauerhaft `auto`. Ungültige Antwort → ein Wiederholungsversuch, dann `INVALID_RESPONSE`. Timeout 15 s per AbortController, SDK-`maxRetries: 1`; 529 (überlastet) zählt als `RATE_LIMIT`.
+- „Verbindung testen“ nutzt `models.retrieve(model)` – kostet keine Tokens und prüft Key und Modellname zugleich (404 → `MODEL_NOT_FOUND`).
+- API-Key: Formatprüfung `sk-ant-…` (Leerraum wird entfernt), Speicherung nur über `secretsRepo`; die UI liest ausschließlich `has()`. Der Key steht nie in localStorage, im DOM oder in Fehlermeldungen (E2E prüft das).
+- Settings-Store: alle Schlüssel mit zod-Schema und Standardwert in `SETTINGS_DEFAULTS` (aiProvider, aiModel, defaultStrictness, defaultDirection, defaultGradingMode, typoTolerance 0,5–1 Standard 0,85 …). `set()` validiert, speichert sofort und setzt `savedAt` für den dezenten „Gespeichert“-Hinweis. Das Modellfeld wird erst nach `loaded` gerendert, sonst überschreibt der geladene Wert die Eingabe.
+- E2E `e2e/settings.spec.ts` mockt die Anthropic-API per `page.route` (inkl. OPTIONS-Preflight mit CORS-Headern) – keine echten API-Aufrufe in Tests oder Screenshots.

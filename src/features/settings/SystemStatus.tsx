@@ -28,12 +28,9 @@ function Row({ label, value, testId }: { label: string; value: ReactNode; testId
   );
 }
 
-/** Version, install mode and storage status (proves PWA install and persistence work). */
-export function SystemStatus() {
+/** Persistent storage status and usage. */
+export function StorageInfo() {
   const storage = useAppStatus((s) => s.storage);
-  const standalone = useAppStatus((s) => s.standalone);
-  const database = useAppStatus((s) => s.database);
-
   const storageUsed =
     storage === null
       ? t.loading
@@ -43,6 +40,27 @@ export function SystemStatus() {
           ? formatBytes(storage.usage)
           : `${formatBytes(storage.usage)} ${t.storageOf} ${formatBytes(storage.quota)}`;
 
+  return (
+    <>
+      <dl className="divide-y divide-line">
+        <Row
+          label={t.persisted}
+          value={yesNo(storage === null ? undefined : storage.persisted)}
+          testId="persisted"
+        />
+        <Row label={t.storageUsed} value={storageUsed} testId="storage-used" />
+      </dl>
+      {storage?.persisted !== true && (
+        <p className="mt-2 text-sm text-fg-muted">{de.settings.storage.persistedHint}</p>
+      )}
+    </>
+  );
+}
+
+/** Version, build, launch mode and database state. */
+export function AboutInfo() {
+  const standalone = useAppStatus((s) => s.standalone);
+  const database = useAppStatus((s) => s.database);
   const databaseStatus =
     database === null
       ? t.loading
@@ -60,15 +78,9 @@ export function SystemStatus() {
           value={standalone ? t.launchStandalone : t.launchBrowser}
           testId="launch-mode"
         />
-        <Row
-          label={t.persisted}
-          value={yesNo(storage === null ? undefined : storage.persisted)}
-          testId="persisted"
-        />
-        <Row label={t.storageUsed} value={storageUsed} testId="storage-used" />
         <Row label={t.databaseStatus} value={databaseStatus} testId="database-status" />
       </dl>
-      {!standalone && <p className="mt-3 text-sm text-fg-muted">{t.installHint}</p>}
+      {!standalone && <p className="mt-2 text-sm text-fg-muted">{t.installHint}</p>}
     </>
   );
 }

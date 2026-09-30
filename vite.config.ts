@@ -25,7 +25,8 @@ const CSP = [
   "style-src 'self'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  "connect-src 'self'",
+  // AI grading straight from the browser (step 6). Hugging Face follows in step 12.
+  "connect-src 'self' https://api.anthropic.com",
   "worker-src 'self'",
   "manifest-src 'self'",
   "object-src 'none'",
