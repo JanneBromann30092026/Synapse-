@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Plus, Sparkles } from 'lucide-react';
 import { Button, Surface, toast } from '@/components/ui';
 import { useLiveData } from '@/data/live';
-import { cardsRepo, projectsRepo, sessionsRepo } from '@/data/repositories';
+import { projectsRepo } from '@/data/repositories';
 import { PROJECT_COLORS } from '@/data/types';
 import { de } from '@/i18n/de';
+import { loadDemoData } from './demoData';
 
 const t = de.dev;
 
@@ -14,33 +15,12 @@ export function DemoDataSection() {
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  async function createSampleProjects() {
+  async function loadDemo() {
     setSaving(true);
     setFailed(false);
     try {
-      for (const sample of t.sampleProjects) {
-        const project = await projectsRepo.create({
-          name: sample.name,
-          description: sample.description,
-          color: sample.color,
-          icon: sample.icon,
-        });
-        await cardsRepo.bulkCreate(
-          project.id,
-          sample.cards.map(([front, back]) => ({ front, back })),
-        );
-        if (sample.studied) {
-          await sessionsRepo.create({
-            projectId: project.id,
-            roundNumber: 1,
-            mode: 'all',
-            direction: 'front_to_back',
-            gradingMode: 'self',
-            totalCards: sample.cards.length,
-          });
-        }
-      }
-      toast.success(t.sampleProjectsCreated(t.sampleProjects.length));
+      const result = await loadDemoData();
+      toast.success(t.demoDataLoaded(result.projects, result.cards));
     } catch {
       setFailed(true);
     } finally {
@@ -78,7 +58,7 @@ export function DemoDataSection() {
             </span>
           </span>
           <span className={failed ? 'text-sm text-danger' : 'text-sm text-fg-muted'}>
-            {failed ? t.saveFailed : t.testProjectHint}
+            {failed ? t.saveFailed : t.demoDataHint}
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -86,9 +66,9 @@ export function DemoDataSection() {
             icon={Sparkles}
             variant="secondary"
             disabled={saving}
-            onClick={() => void createSampleProjects()}
+            onClick={() => void loadDemo()}
           >
-            {t.createSampleProjects}
+            {t.loadDemoData}
           </Button>
           <Button icon={Plus} loading={saving} onClick={() => void createTestProject()}>
             {t.createTestProject}

@@ -1,4 +1,5 @@
 import { Dexie } from 'dexie';
+import { normalizeCardText } from '@/core/cards';
 import { db } from '../db';
 import { cardCascadeTables, deleteCardsCascade } from '../cascade';
 import { RecordNotFoundError, parseOrThrow } from '../errors';
@@ -102,9 +103,32 @@ export const cardsRepo = {
     });
   },
 
+  /**
+   * Another card of the project with the same normalized front side (case, whitespace and
+   * full-/half-width insensitive), or undefined.
+   */
+  async findDuplicate(
+    projectId: string,
+    front: string,
+    excludeCardId?: string,
+  ): Promise<Card | undefined> {
+    const key = normalizeCardText(front);
+    if (!key) return undefined;
+    return db.cards
+      .where('projectId')
+      .equals(projectId)
+      .filter((card) => card.id !== excludeCardId && normalizeCardText(card.front) === key)
+      .first();
+  },
+
   /** Deletes the card with its answers, grading cache, embedding, links and graph position. */
   async delete(id: string): Promise<void> {
     await db.transaction('rw', cardCascadeTables(db), () => deleteCardsCascade(db, [id]));
+  },
+
+  /** Deletes several cards (with all dependent data) in one transaction. */
+  async deleteMany(ids: string[]): Promise<void> {
+    await db.transaction('rw', cardCascadeTables(db), () => deleteCardsCascade(db, ids));
   },
 
   async moveToProject(cardIds: string[], targetProjectId: string): Promise<void> {

@@ -1,7 +1,8 @@
 import { useId, useRef, type ReactNode } from 'react';
-import { AnimatePresence, motion, useDragControls, type PanInfo } from 'motion/react';
+import { AnimatePresence, motion, useIsPresent, useDragControls, type PanInfo } from 'motion/react';
 import { de } from '@/i18n/de';
 import { fade, spring } from '@/styles/motion';
+import { cn } from './cn';
 import { useEscape } from './hooks/useEscape';
 import { useFocusTrap } from './hooks/useFocusTrap';
 import { useKeyboardInset } from './hooks/useKeyboardInset';
@@ -40,6 +41,8 @@ function SheetPanel({
   const id = useId();
   const panel = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
+  // While fading out, taps already reach the page below.
+  const isPresent = useIsPresent();
   useFocusTrap(panel, true);
   useEscape(onClose, true);
   const keyboardInset = useKeyboardInset();
@@ -50,7 +53,10 @@ function SheetPanel({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
+      className={cn(
+        'fixed inset-0 z-50 flex items-end justify-center',
+        !isPresent && 'pointer-events-none',
+      )}
       // Keeps the sheet above the on-screen keyboard.
       style={keyboardInset ? { paddingBottom: keyboardInset } : undefined}
     >

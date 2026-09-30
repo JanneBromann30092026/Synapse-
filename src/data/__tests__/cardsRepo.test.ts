@@ -133,4 +133,25 @@ describe('cardsRepo', () => {
       cardsRepo.create(project.id, { front: 'a', back: 'b', tags: ['x'.repeat(41)] }),
     ).rejects.toMatchObject({ field: 'tags.0', code: 'tooLong' });
   });
+
+  it('finds duplicates by normalized front side', async () => {
+    const other = await projectsRepo.create({ name: 'BWL' });
+    const card = await cardsRepo.create(project.id, { front: 'Das  Haus', back: 'house' });
+    await cardsRepo.create(other.id, { front: 'Katze', back: 'cat' });
+
+    expect((await cardsRepo.findDuplicate(project.id, ' das haus '))?.id).toBe(card.id);
+    expect(await cardsRepo.findDuplicate(project.id, 'das haus', card.id)).toBeUndefined();
+    expect(await cardsRepo.findDuplicate(project.id, 'Katze')).toBeUndefined();
+    expect(await cardsRepo.findDuplicate(project.id, '   ')).toBeUndefined();
+  });
+
+  it('deletes several cards at once', async () => {
+    const cards = await cardsRepo.bulkCreate(project.id, [
+      { front: '1', back: '1' },
+      { front: '2', back: '2' },
+      { front: '3', back: '3' },
+    ]);
+    await cardsRepo.deleteMany([cards[0]!.id, cards[2]!.id]);
+    expect((await cardsRepo.listByProject(project.id)).map((c) => c.front)).toEqual(['2']);
+  });
 });

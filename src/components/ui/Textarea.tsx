@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, type ComponentPropsWithRef } from 'react';
+import { useId, useLayoutEffect, useRef, type ComponentPropsWithRef, type RefObject } from 'react';
 import { controlClass } from './controlClass';
 import { Field } from './Field';
 import { cn } from './cn';
@@ -9,6 +9,8 @@ export interface TextareaProps extends Omit<ComponentPropsWithRef<'textarea'>, '
   error?: string;
   /** Maximum height in px before the textarea scrolls. */
   maxHeight?: number;
+  /** Access to the element, e.g. to focus it programmatically. */
+  textareaRef?: RefObject<HTMLTextAreaElement | null>;
 }
 
 /** Textarea that grows with its content. */
@@ -22,11 +24,13 @@ export function Textarea({
   rows = 3,
   value,
   onInput,
+  textareaRef,
   ...rest
 }: TextareaProps) {
   const generatedId = useId();
   const textareaId = id ?? generatedId;
-  const ref = useRef<HTMLTextAreaElement>(null);
+  const ownRef = useRef<HTMLTextAreaElement>(null);
+  const ref = textareaRef ?? ownRef;
 
   const resize = () => {
     const element = ref.current;
@@ -36,7 +40,7 @@ export function Textarea({
     element.style.overflowY = element.scrollHeight > maxHeight ? 'auto' : 'hidden';
   };
 
-  useLayoutEffect(resize, [value, maxHeight]);
+  useLayoutEffect(resize, [value, maxHeight, ref]);
 
   return (
     <Field id={textareaId} label={label} hint={hint} error={error}>

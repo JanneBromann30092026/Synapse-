@@ -1,5 +1,5 @@
 import { useId, useRef, type ReactNode } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useIsPresent } from 'motion/react';
 import { X } from 'lucide-react';
 import { de } from '@/i18n/de';
 import { fade, spring } from '@/styles/motion';
@@ -46,13 +46,18 @@ function ModalPanel({
 }: Omit<ModalProps, 'open'>) {
   const id = useId();
   const panel = useRef<HTMLDivElement>(null);
+  // While fading out, taps already reach the page below.
+  const isPresent = useIsPresent();
   useFocusTrap(panel, true);
   useEscape(onClose, true);
   const keyboardInset = useKeyboardInset();
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] transition-[padding] duration-200"
+      className={cn(
+        'fixed inset-0 z-50 flex items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] transition-[padding] duration-200',
+        !isPresent && 'pointer-events-none',
+      )}
       // Keeps the dialog above the on-screen keyboard.
       style={keyboardInset ? { paddingBottom: keyboardInset + 16 } : undefined}
     >
