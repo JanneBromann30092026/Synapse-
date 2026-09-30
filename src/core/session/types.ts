@@ -119,6 +119,10 @@ export interface SessionState extends RoundOptions {
   answerIds: Record<string, string>;
   /** ISO timestamp of the round start. */
   startedAt: string | null;
+  /** Result per answered card of this round (for the summary at the round end). */
+  results: Record<string, LastResult>;
+  /** Epoch ms when the round was completed. */
+  completedAt: number | null;
 }
 
 export interface StartRoundAction {

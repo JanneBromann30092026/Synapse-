@@ -41,7 +41,8 @@ import { useCards, useDebouncedValue } from '@/features/cards/hooks';
 import { de } from '@/i18n/de';
 import { spring } from '@/styles/motion';
 import { studyLayoutId, useLaunchStudy, useStudyLaunch } from '@/features/study/studyLaunch';
-import { useProject, useProjects } from './hooks';
+import { formatRelativeTime } from '@/core/relativeTime';
+import { useLastRound, useProject, useProjects } from './hooks';
 import { ProjectDialog } from './ProjectDialog';
 
 const t = de.pages.project;
@@ -70,6 +71,7 @@ export function ProjectPage() {
   const project = useProject(projectId);
   const projects = useProjects();
   const allCards = useCards(projectId);
+  const lastRound = useLastRound(projectId);
   const launchStudy = useLaunchStudy();
   // Re-renders the study button when the launch starts, so the shared layout has its position.
   const launching = useStudyLaunch((s) => s.stage !== 'idle' && s.projectId === projectId);
@@ -217,9 +219,20 @@ export function ProjectPage() {
           {project.description && (
             <p className="max-w-2xl text-base text-fg-secondary">{project.description}</p>
           )}
-          <p className="text-sm font-medium text-fg-muted" data-testid="card-count">
-            {de.pages.projects.cardCount(cardCount)}
-          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-fg-muted">
+            <p data-testid="card-count">{de.pages.projects.cardCount(cardCount)}</p>
+            {lastRound && lastRound.finishedAt && (
+              <p data-testid="last-round" className="flex items-center gap-1.5">
+                <span aria-hidden className="size-1 rounded-full bg-fg-muted" />
+                {t.lastRound(
+                  lastRound.totalCards === 0
+                    ? 0
+                    : Math.round((lastRound.correctCount / lastRound.totalCards) * 100),
+                  formatRelativeTime(lastRound.finishedAt),
+                )}
+              </p>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2">
             <Button
               size="lg"

@@ -60,4 +60,14 @@ export const sessionsRepo = {
       .between([projectId, Dexie.minKey], [projectId, Dexie.maxKey])
       .last();
   },
+
+  /** Most recent completed (not aborted) round of a project, e.g. for "Letzte Runde: 85 %". */
+  async getLastCompleted(projectId: string): Promise<StudySession | undefined> {
+    return db.studySessions
+      .where('[projectId+startedAt]')
+      .between([projectId, Dexie.minKey], [projectId, Dexie.maxKey])
+      .reverse()
+      .filter((session) => !session.aborted && session.finishedAt !== undefined)
+      .first();
+  },
 };

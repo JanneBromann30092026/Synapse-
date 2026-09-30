@@ -238,3 +238,170 @@ test('AI failure switches to self assessment with a hint; quit asks first', asyn
   await page.getByRole('button', { name: 'Lernen', exact: true }).click();
   await expect(page.getByTestId('study-setup')).toBeVisible();
 });
+
+/** All study sessions and answers straight from IndexedDB (oldest round first). */
+async function readStudyLog(page: Page) {
+  return page.evaluate(
+    () =>
+      new Promise<{
+        sessions: {
+          roundNumber: number;
+          mode: string;
+          totalCards: number;
+          correctCount: number;
+          incorrectCount: number;
+          aborted: boolean;
+          finishedAt?: string;
+        }[];
+        answers: { sessionId: string; verdict: string }[];
+      }>((resolve, reject) => {
+        const open = indexedDB.open('synapse');
+        open.onerror = () => reject(new Error('open failed'));
+        open.onsuccess = () => {
+          const tx = open.result.transaction(['studySessions', 'answers'], 'readonly');
+          const sessions = tx.objectStore('studySessions').getAll();
+          const answers = tx.objectStore('answers').getAll();
+          tx.oncomplete = () => {
+            open.result.close();
+            resolve({
+              sessions: (sessions.result as { roundNumber: number }[]).sort(
+                (a, b) => a.roundNumber - b.roundNumber,
+              ) as never,
+              answers: answers.result as never,
+            });
+          };
+        };
+      }),
+  );
+}
+
+/** Self assessment of the current card by hardware key (R = known, F = not known). */
+async function selfAnswer(page: Page, known: boolean, expected: 'presenting' | 'roundComplete') {
+  await page.getByRole('button', { name: 'Aufdecken' }).click();
+  await expect(phase(page)).toHaveAttribute('data-phase', 'selfAssessing');
+  await page.keyboard.press(known ? 'r' : 'f');
+  await expect(phase(page)).toHaveAttribute('data-phase', expected);
+}
+
+test('round end: summary, repeating wrong / all cards and the stored history', async ({ page }) => {
+  const problems = collectConsoleProblems(page);
+  let apiCalls = 0;
+  await page.route('https://api.anthropic.com/**', async (route) => {
+    apiCalls += 1;
+    await route.abort();
+  });
+  await createProject(page);
+  await startRound(page, 'Selbstbewertung');
+
+  // Round 1: one known, two not known.
+  await selfAnswer(page, true, 'presenting');
+  await selfAnswer(page, false, 'presenting');
+  await selfAnswer(page, false, 'roundComplete');
+
+  const summary = page.getByTestId('study-complete');
+  await expect(summary).toHaveAttribute('data-percentage', '33');
+  await expect(summary.getByRole('heading', { name: 'Runde 1 geschafft' })).toBeVisible();
+  const tiles = page.getByTestId('study-complete-tiles');
+  await expect(tiles.getByRole('definition')).toHaveText([
+    '1',
+    '2',
+    '3',
+    /^\d+ s$|^\d+:\d\d min$/,
+    /^\d+(,\d)? s$/,
+  ]);
+  await expect(page.getByTestId('study-motivation')).not.toBeEmpty();
+  await expect(page.getByTestId('study-input')).not.toBeFocused();
+  // Wrong answers are listed open, right ones folded.
+  await expect(page.getByTestId('study-list-incorrect').getByTestId('study-list-item')).toHaveCount(
+    2,
+  );
+  await expect(page.getByTestId('study-list-incorrect')).toContainText('(keine Eingabe)');
+  const rightList = page.getByTestId('study-list-correct');
+  await expect(rightList.getByTestId('study-list-item')).toHaveCount(0);
+  await rightList.getByRole('button', { name: /Richtig beantwortet/ }).click();
+  await expect(rightList.getByTestId('study-list-item')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Falsche wiederholen (2)' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Richtige wiederholen (1)' })).toBeEnabled();
+
+  // Key 1: round 2 with the two wrong cards, round status back to 0 %.
+  await page.keyboard.press('1');
+  await expect(phase(page)).toHaveAttribute('data-phase', 'presenting');
+  await expect(page.getByTestId('study-complete')).toHaveCount(0);
+  await expect(page.getByTestId('study-position')).toContainText('Runde 2 · 1 / 2');
+  await expect(page.getByTestId('study-input')).toBeFocused();
+  await expect(page.getByTestId('study-pile-correct-count')).toHaveText('0');
+  await expect(page.getByRole('progressbar', { name: 'Rundenstatus (richtig)' })).toHaveAttribute(
+    'aria-valuenow',
+    '0',
+  );
+
+  // Round 2: all known → 100 % with confetti; nothing wrong to repeat.
+  await selfAnswer(page, true, 'presenting');
+  await selfAnswer(page, true, 'roundComplete');
+  await expect(summary).toHaveAttribute('data-percentage', '100');
+  await expect(summary.getByRole('heading', { name: 'Runde 2 geschafft' })).toBeVisible();
+  await expect(page.getByTestId('confetti')).toBeAttached();
+  await expect(page.getByRole('button', { name: 'Falsche wiederholen (0)' })).toBeDisabled();
+  await expect(page.getByText('Keine falschen Karten – alles richtig.')).toBeVisible();
+  await page.keyboard.press('1'); // empty pile: stays on the summary
+  await expect(phase(page)).toHaveAttribute('data-phase', 'roundComplete');
+
+  // "Alle wiederholen": round 3 with both cards of round 2, then quit after one answer.
+  await page.getByRole('button', { name: 'Alle wiederholen' }).click();
+  await expect(page.getByTestId('study-position')).toContainText('Runde 3 · 1 / 2');
+  await selfAnswer(page, true, 'presenting');
+  await page.keyboard.press('Escape');
+  await page
+    .getByRole('alertdialog', { name: 'Runde beenden?' })
+    .getByRole('button', { name: 'Beenden' })
+    .click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Tiere' })).toBeVisible();
+
+  // The project shows the last completed round (the aborted one does not count).
+  await expect(page.getByTestId('last-round')).toHaveText(/^Letzte Runde: 100 % · /);
+
+  const log = await readStudyLog(page);
+  expect(
+    log.sessions.map(
+      ({ roundNumber, mode, totalCards, correctCount, incorrectCount, aborted }) => ({
+        roundNumber,
+        mode,
+        totalCards,
+        correctCount,
+        incorrectCount,
+        aborted,
+      }),
+    ),
+  ).toEqual([
+    {
+      roundNumber: 1,
+      mode: 'all',
+      totalCards: 3,
+      correctCount: 1,
+      incorrectCount: 2,
+      aborted: false,
+    },
+    {
+      roundNumber: 2,
+      mode: 'wrong',
+      totalCards: 2,
+      correctCount: 2,
+      incorrectCount: 0,
+      aborted: false,
+    },
+    {
+      roundNumber: 3,
+      mode: 'all',
+      totalCards: 2,
+      correctCount: 1,
+      incorrectCount: 0,
+      aborted: true,
+    },
+  ]);
+  expect(log.sessions.every((session) => session.finishedAt)).toBe(true);
+  // Every answer is logged, also the one of the aborted round.
+  expect(log.answers).toHaveLength(6);
+
+  expect(apiCalls).toBe(0);
+  expect(problems).toEqual([]);
+});

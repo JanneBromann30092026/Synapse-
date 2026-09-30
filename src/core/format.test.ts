@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBytes } from './format';
+import { formatBytes, formatDuration, formatSeconds } from './format';
 
 describe('formatBytes', () => {
   it('formats bytes without decimals', () => {
@@ -26,5 +26,32 @@ describe('formatBytes', () => {
     expect(formatBytes(-1)).toBe('–');
     expect(formatBytes(Number.NaN)).toBe('–');
     expect(formatBytes(Number.POSITIVE_INFINITY)).toBe('–');
+  });
+});
+
+describe('formatDuration', () => {
+  it('uses seconds below a minute', () => {
+    expect(formatDuration(0)).toBe('0 s');
+    expect(formatDuration(44_600)).toBe('45 s');
+  });
+
+  it('uses m:ss min and h:mm h', () => {
+    expect(formatDuration(59_600)).toBe('1:00 min');
+    expect(formatDuration(125_000)).toBe('2:05 min');
+    expect(formatDuration(3_720_000)).toBe('1:02 h');
+  });
+
+  it('shows a dash for unknown or invalid values', () => {
+    expect(formatDuration(null)).toBe('–');
+    expect(formatDuration(-1)).toBe('–');
+    expect(formatDuration(Number.NaN)).toBe('–');
+  });
+});
+
+describe('formatSeconds', () => {
+  it('keeps one decimal below 10 s', () => {
+    expect(formatSeconds(4_240)).toBe('4,2 s');
+    expect(formatSeconds(12_400)).toBe('12 s');
+    expect(formatSeconds(null)).toBe('–');
   });
 });

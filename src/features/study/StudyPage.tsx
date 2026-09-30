@@ -7,8 +7,9 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { useParams } from 'react-router';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { ArrowRight, Check, RotateCcw, Send, Sparkles, X } from 'lucide-react';
+import { summarizeRound } from '@/core/session';
 import {
   Button,
   ConfirmDialog,
@@ -22,14 +23,15 @@ import {
 import { useKeyboardInset } from '@/components/ui/hooks/useKeyboardInset';
 import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import { isImeEvent } from '@/core/hotkeys';
-import { displayedPiles, fitCard } from '@/core/study/presentation';
-import type { Project, Verdict } from '@/data/types';
+import { displayedPiles, fitCard, pileLayoutId } from '@/core/study/presentation';
+import type { Project, StudyMode, Verdict } from '@/data/types';
 import { useCards } from '@/features/cards/hooks';
 import { useProject } from '@/features/projects/hooks';
 import { useSettings } from '@/features/settings/settingsStore';
 import { de } from '@/i18n/de';
 import { spring } from '@/styles/motion';
 import { useReducedMotion } from '@/styles/useReducedMotion';
+import { RoundSummary } from './RoundSummary';
 import { StudyCard, type CardTone, type FlightTarget } from './StudyCard';
 import { useLeaveStudy, useStudyLaunch } from './studyLaunch';
 import { StudyPile } from './StudyPile';
@@ -162,6 +164,17 @@ function StudySurface({ project, cards, session, onLeave }: StudySurfaceProps) {
     );
   }
 
+  /** Pile sizes a follow-up round in `mode` would ask. */
+  const repeatCount = (mode: StudyMode) =>
+    mode === 'wrong' ? stats.incorrect : mode === 'right' ? stats.correct : stats.totalInRound;
+
+  /** Next round from the round end: same options, the summary folds together, a card flies in. */
+  function repeat(mode: StudyMode) {
+    if (phase !== 'roundComplete' || repeatCount(mode) === 0) return;
+    inputRef.current?.focus({ preventScroll: true });
+    void session.startNextRound(mode);
+  }
+
   /** Card flies onto the pile of `verdict`; the second NEXT follows when it arrived. */
   function advance(verdict: Verdict) {
     const pile = (verdict === 'correct' ? correctPileRef : incorrectPileRef).current;
@@ -197,6 +210,11 @@ function StudySurface({ project, cards, session, onLeave }: StudySurfaceProps) {
     else if (phase === 'revealed' && result) advance(result.verdict);
   }
 
+  // Round end: the on-screen keyboard goes away, the summary needs the whole height.
+  useEffect(() => {
+    if (phase === 'roundComplete') inputRef.current?.blur();
+  }, [phase]);
+
   // Leaving after the round end or an abort: the next visit starts with the setup again.
   const { reset } = session;
   useEffect(() => () => reset(), [reset]);
@@ -229,7 +247,7 @@ function StudySurface({ project, cards, session, onLeave }: StudySurfaceProps) {
     }
   }, [phase, reason]);
 
-  // Hardware keyboard: Enter, O, R/F or arrows, Esc (never during IME composition).
+  // Hardware keyboard: Enter, O, R/F or arrows, Esc; round end 1 / 2 / 3 (never during IME).
   const onKey = useEffectEvent((event: KeyboardEvent) => {
     if (isImeEvent(event) || event.metaKey || event.ctrlKey || event.altKey) return;
     if (quitOpen || phase === 'setup') return;
@@ -239,6 +257,15 @@ function StudySurface({ project, cards, session, onLeave }: StudySurfaceProps) {
       event.preventDefault();
       if (running) setQuitOpen(true);
       else onLeave();
+      return;
+    }
+    if (phase === 'roundComplete') {
+      const modes: Record<string, StudyMode> = { '1': 'wrong', '2': 'right', '3': 'all' };
+      const mode = modes[key];
+      if (mode && !event.repeat) {
+        event.preventDefault();
+        repeat(mode);
+      }
       return;
     }
     if (inAnswer && phase === 'presenting') return;
@@ -304,16 +331,21 @@ function StudySurface({ project, cards, session, onLeave }: StudySurfaceProps) {
     ) : undefined;
 
   const pileProps = { reduced, compact: !sidePiles };
+  // Same layoutId as the piles of the summary: at the round end they glide into the middle.
   const incorrectPile = (
-    <StudyPile
-      kind="incorrect"
-      count={piles.incorrect}
-      targetRef={incorrectPileRef}
-      {...pileProps}
-    />
+    <motion.div layoutId={pileLayoutId('incorrect')} layout="position">
+      <StudyPile
+        kind="incorrect"
+        count={piles.incorrect}
+        targetRef={incorrectPileRef}
+        {...pileProps}
+      />
+    </motion.div>
   );
   const correctPile = (
-    <StudyPile kind="correct" count={piles.correct} targetRef={correctPileRef} {...pileProps} />
+    <motion.div layoutId={pileLayoutId('correct')} layout="position">
+      <StudyPile kind="correct" count={piles.correct} targetRef={correctPileRef} {...pileProps} />
+    </motion.div>
   );
 
   return (
@@ -365,106 +397,131 @@ function StudySurface({ project, cards, session, onLeave }: StudySurfaceProps) {
                 </span>
               )}
             </div>
-            <ProgressRing
-              value={stats.correctPercentage / 100}
-              label={t.roundStatus}
-              size={52}
-              strokeWidth={5}
+            {/* At the round end the big ring of the summary takes over. */}
+            <motion.div
               className="shrink-0"
-            />
+              initial={false}
+              animate={{ opacity: complete ? 0 : 1, scale: complete ? 0.6 : 1 }}
+              transition={spring.default}
+              aria-hidden={complete || undefined}
+            >
+              <ProgressRing
+                value={stats.correctPercentage / 100}
+                label={t.roundStatus}
+                size={52}
+                strokeWidth={5}
+              />
+            </motion.div>
           </div>
         </div>
       </header>
 
-      {/* Middle: the card between the piles */}
-      {complete ? (
-        <RoundCompletePlaceholder
-          percentage={stats.correctPercentage}
-          correct={stats.correct}
-          incorrect={stats.incorrect}
-          onNewRound={session.reset}
-          onLeave={onLeave}
-        />
-      ) : (
-        <div
-          className={
-            sidePiles
-              ? 'flex min-h-0 flex-1 items-center gap-4 px-[max(1.5rem,env(safe-area-inset-left))] py-3'
-              : 'flex min-h-0 flex-1 flex-col gap-3 px-[max(1rem,env(safe-area-inset-left))] py-2'
-          }
-        >
-          {sidePiles && incorrectPile}
-          <div
-            ref={stageRef}
-            className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center self-stretch pt-7"
-          >
-            {current && stage.width > 0 && (
-              <StudyCard
-                key={`${state.roundNumber}:${state.currentIndex}`}
-                prompt={current.prompt}
-                expected={current.expected}
-                notes={cards.find((card) => card.id === current.card.id)?.notes}
-                userInput={state.userInput}
-                color={color}
-                size={cardSize}
-                tone={tone}
-                flipped={flipped}
-                result={result}
-                swipe={assessing ? 'self' : phase === 'revealed' ? 'next' : null}
-                onSwipe={onSwipe}
-                flight={phase === 'transitioning' ? flight : null}
-                onFlown={onFlown}
-                reduced={reduced}
-                frontExtra={errorPanel}
-              />
-            )}
-            {phase === 'setup' && stage.width > 0 && (
-              <div
-                aria-hidden
-                className="rounded-xl border-[1.5px] border-dashed border-line-strong"
-                style={{ width: cardSize.width, height: cardSize.height }}
-              />
-            )}
-          </div>
-          {sidePiles ? (
-            correctPile
+      {/* Middle: the card between the piles, or the round summary */}
+      <div className="relative min-h-0 flex-1">
+        <AnimatePresence initial={false}>
+          {complete ? (
+            <RoundSummary
+              key="summary"
+              summary={summarizeRound(state)}
+              roundNumber={state.roundNumber}
+              seed={state.startedAt ?? String(state.roundNumber)}
+              color={color}
+              reduced={reduced}
+              onRepeat={repeat}
+              onLeave={onLeave}
+            />
           ) : (
-            <div className="mx-auto flex w-full max-w-xl items-center justify-between px-2">
-              {incorrectPile}
-              {correctPile}
-            </div>
+            <motion.div
+              key="stage"
+              className={
+                sidePiles
+                  ? 'absolute inset-0 flex items-center gap-4 px-[max(1.5rem,env(safe-area-inset-left))] py-3'
+                  : 'absolute inset-0 flex flex-col gap-3 px-[max(1rem,env(safe-area-inset-left))] py-2'
+              }
+              exit={{ opacity: 0, transition: { duration: 0.25 } }}
+            >
+              {sidePiles && incorrectPile}
+              <div
+                ref={stageRef}
+                className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center self-stretch pt-7"
+              >
+                {current && stage.width > 0 && (
+                  <StudyCard
+                    key={`${state.roundNumber}:${state.currentIndex}`}
+                    prompt={current.prompt}
+                    expected={current.expected}
+                    notes={cards.find((card) => card.id === current.card.id)?.notes}
+                    userInput={state.userInput}
+                    color={color}
+                    size={cardSize}
+                    tone={tone}
+                    flipped={flipped}
+                    result={result}
+                    swipe={assessing ? 'self' : phase === 'revealed' ? 'next' : null}
+                    onSwipe={onSwipe}
+                    flight={phase === 'transitioning' ? flight : null}
+                    onFlown={onFlown}
+                    reduced={reduced}
+                    frontExtra={errorPanel}
+                  />
+                )}
+                {phase === 'setup' && stage.width > 0 && (
+                  <div
+                    aria-hidden
+                    className="rounded-xl border-[1.5px] border-dashed border-line-strong"
+                    style={{ width: cardSize.width, height: cardSize.height }}
+                  />
+                )}
+              </div>
+              {sidePiles ? (
+                correctPile
+              ) : (
+                <div className="mx-auto flex w-full max-w-xl items-center justify-between px-2">
+                  {incorrectPile}
+                  {correctPile}
+                </div>
+              )}
+            </motion.div>
           )}
-        </div>
-      )}
+        </AnimatePresence>
+      </div>
 
       {/* Bottom: answer field and the actions of the phase */}
-      {!complete && (
-        <form
-          onSubmit={submit}
-          className="shrink-0 px-[max(1rem,env(safe-area-inset-left))] pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]"
-          style={keyboardInset ? { paddingBottom: 12 } : undefined}
-        >
-          <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-2">
-            <label className="min-w-56 flex-1">
-              <span className="sr-only">{t.answerLabel}</span>
-              <input
-                ref={inputRef}
-                value={state.userInput}
-                onChange={(event) => session.setInput(event.target.value)}
-                onKeyDown={onAnswerKeyDown}
-                {...ime.compositionProps}
-                aria-label={t.answerLabel}
-                aria-readonly={phase !== 'presenting' && phase !== 'setup'}
-                placeholder={t.answerPlaceholder}
-                autoComplete="off"
-                autoCapitalize="off"
-                autoCorrect="off"
-                spellCheck={false}
-                enterKeyHint={phase === 'revealed' ? 'next' : 'send'}
-                data-testid="study-input"
-                className="min-h-14 w-full rounded-full border border-line bg-surface-raised px-6 text-lg text-fg shadow-soft outline-none placeholder:text-fg-muted focus:border-accent focus:shadow-[0_0_0_4px_var(--accent-soft)] aria-readonly:text-fg-secondary"
-              />
-            </label>
+      {/* Stays mounted (invisible) at the round end: focusing it in the tap on "wiederholen"
+          opens the iPad keyboard for the next round. */}
+      <form
+        onSubmit={submit}
+        className={
+          complete
+            ? 'pointer-events-none absolute inset-x-0 bottom-0 opacity-0'
+            : 'shrink-0 px-[max(1rem,env(safe-area-inset-left))] pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]'
+        }
+        style={keyboardInset && !complete ? { paddingBottom: 12 } : undefined}
+        aria-hidden={complete || undefined}
+      >
+        <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-2">
+          <label className="min-w-56 flex-1">
+            <span className="sr-only">{t.answerLabel}</span>
+            <input
+              ref={inputRef}
+              value={state.userInput}
+              onChange={(event) => session.setInput(event.target.value)}
+              onKeyDown={onAnswerKeyDown}
+              {...ime.compositionProps}
+              aria-label={t.answerLabel}
+              aria-readonly={phase !== 'presenting' && phase !== 'setup'}
+              placeholder={t.answerPlaceholder}
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint={phase === 'revealed' ? 'next' : 'send'}
+              tabIndex={complete ? -1 : undefined}
+              data-testid="study-input"
+              className="min-h-14 w-full rounded-full border border-line bg-surface-raised px-6 text-lg text-fg shadow-soft outline-none placeholder:text-fg-muted focus:border-accent focus:shadow-[0_0_0_4px_var(--accent-soft)] aria-readonly:text-fg-secondary"
+            />
+          </label>
+          {!complete && (
             <PhaseActions
               phase={phase}
               assessing={assessing}
@@ -473,10 +530,10 @@ function StudySurface({ project, cards, session, onLeave }: StudySurfaceProps) {
               onAssess={(verdict) => assess(verdict)}
               onOverride={(verdict) => session.override(verdict)}
             />
-          </div>
-          {assessing && <p className="mt-2 text-center text-sm text-fg-muted">{t.swipeHint}</p>}
-        </form>
-      )}
+          )}
+        </div>
+        {assessing && <p className="mt-2 text-center text-sm text-fg-muted">{t.swipeHint}</p>}
+      </form>
 
       <StudySetupSheet
         open={phase === 'setup'}
@@ -585,42 +642,5 @@ function PhaseActions({
     >
       {evaluating ? t.checking : selfMode ? t.reveal : t.check}
     </Button>
-  );
-}
-
-function RoundCompletePlaceholder({
-  percentage,
-  correct,
-  incorrect,
-  onNewRound,
-  onLeave,
-}: {
-  percentage: number;
-  correct: number;
-  incorrect: number;
-  onNewRound: () => void;
-  onLeave: () => void;
-}) {
-  return (
-    <motion.div
-      className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 p-6 text-center"
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={spring.default}
-      data-testid="study-complete"
-    >
-      <h2 className="text-3xl font-semibold tracking-tight text-fg">{t.complete.title}</h2>
-      <ProgressRing value={percentage / 100} label={t.roundStatus} size={150} strokeWidth={12} />
-      <p className="text-lg text-fg-secondary">{t.complete.summary(correct, incorrect)}</p>
-      <div className="flex flex-wrap justify-center gap-2">
-        <Button size="lg" icon={RotateCcw} onClick={onNewRound}>
-          {t.complete.newRound}
-        </Button>
-        <Button size="lg" variant="secondary" onClick={onLeave}>
-          {t.back}
-        </Button>
-      </div>
-      <p className="text-sm text-fg-muted">{t.complete.hint}</p>
-    </motion.div>
   );
 }

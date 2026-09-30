@@ -13,10 +13,19 @@ export interface StudyPileProps {
   targetRef: RefObject<HTMLDivElement | null>;
   reduced: boolean;
   compact?: boolean;
+  /** Defaults to study-pile-<kind>; the counter gets the suffix -count. */
+  testId?: string;
 }
 
 /** "Falsch" (red) or "Richtig" (green) pile: offset mini cards and a counter that counts up. */
-export function StudyPile({ kind, count, targetRef, reduced, compact = false }: StudyPileProps) {
+export function StudyPile({
+  kind,
+  count,
+  targetRef,
+  reduced,
+  compact = false,
+  testId = `study-pile-${kind}`,
+}: StudyPileProps) {
   const correct = kind === 'correct';
   const color = correct ? 'var(--success)' : 'var(--danger)';
   const soft = correct ? 'var(--success-soft)' : 'var(--danger-soft)';
@@ -38,7 +47,7 @@ export function StudyPile({ kind, count, targetRef, reduced, compact = false }: 
   return (
     <div
       className={cn('flex shrink-0 items-center gap-3', compact ? 'flex-row' : 'flex-col')}
-      data-testid={`study-pile-${kind}`}
+      data-testid={testId}
       role="status"
       aria-label={t.pileLabel(name, count)}
     >
@@ -70,7 +79,7 @@ export function StudyPile({ kind, count, targetRef, reduced, compact = false }: 
             <motion.span
               key={count}
               className="block"
-              data-testid={`study-pile-${kind}-count`}
+              data-testid={`${testId}-count`}
               initial={reduced ? false : { y: '70%', opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={reduced ? { opacity: 0 } : { y: '-70%', opacity: 0 }}

@@ -26,3 +26,12 @@ export {
   type SessionState,
   type StartRoundAction,
 } from './types';
+export {
+  MOTIVATION_TIERS,
+  motivationTier,
+  pickVariant,
+  summarizeRound,
+  type MotivationTier,
+  type RoundSummary,
+  type SummaryItem,
+} from './summary';
