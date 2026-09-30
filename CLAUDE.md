@@ -73,7 +73,7 @@ Touch-first (iPad):
 - [x] 0 Projektkontext (CLAUDE.md)
 - [x] 1 Projekt-Setup, PWA & Deployment
 - [x] 2 Datenbank & Datenmodell
-- [ ] 3 Design-System & App-Shell
+- [x] 3 Design-System & App-Shell
 - [ ] 4 Projektverwaltung
 - [ ] 5 Karteikartenverwaltung
 - [ ] 6 Einstellungen & KI-Anbindung
@@ -103,4 +103,13 @@ Touch-first (iPad):
 - `cardsRepo.update` löscht den gradingCache der Karte, wenn sich Vorder- oder Rückseite ändern. `bulkCreate` vergibt createdAt im Millisekundenabstand, damit die Import-Reihenfolge erhalten bleibt (Listen sortieren nach [projectId+createdAt]).
 - `lastStudiedAt` in `projectsRepo.list` = Start der letzten Session des Projekts (projektübergreifende Sessions zählen nicht).
 - Tests: fake-indexeddb als Vitest-setupFile; `src/data/__tests__/testDb.ts` leert vor jedem Test alle Tabellen.
-- Bundle ist ~590 kB (187 kB gzip), Vite warnt ab 500 kB (v. a. zod 4 + Dexie). Code-Splitting pro Route ab Schritt 3 einplanen.
+- Bundle: Vendor-Chunks per `build.rolldownOptions.output.codeSplitting` (react, motion, data = dexie+zod); /dev/ui wird lazy geladen. Keine Chunk-Größenwarnung mehr.
+- Schritt 3 (Design-System): Tokens in `src/styles/tokens.css` (CSS-Variablen, Tailwind über `@theme inline`; Klassen z. B. `bg-surface`, `text-fg-secondary`, `border-line`, `bg-accent-soft`, Breakpoint `wide:` = 900 px). Dunkle Werte stehen doppelt (data-theme="dark" und Media-Query-Fallback ohne data-theme) – beide Blöcke synchron halten. Kein `light-dark()`, damit ältere iPadOS-Versionen funktionieren. `dark:`-Variante hängt an data-theme.
+- Theme: `main.tsx` setzt data-theme und theme-color vor dem ersten Render aus einem localStorage-Spiegel (`synapse.bootPrefs`), weil IndexedDB asynchron ist und die CSP keine Inline-Skripte erlaubt. Quelle der Wahrheit bleibt die settings-Tabelle.
+- Settings-Store (`src/features/settings/settingsStore.ts`, Zustand) schon jetzt minimal angelegt (theme, reduceMotion, devMode, sidebarCollapsed); Schritt 6 erweitert ihn. Zusätzlich zum Auftrag gibt es den Schalter „Bewegungen reduzieren“, weil der useReducedMotion-Wrapper (System + App) sonst keine Quelle hätte. Umsetzung: `MotionConfig reducedMotion="always"` + `data-reduce-motion` auf <html> für CSS-Animationen.
+- Navigation: ab 900 px Sidebar (einklappbar, Zustand in settings), darunter (Hochformat, Split View) Tab-Bar unten. Entscheidung für die Tab-Bar statt Overlay-Sidebar: ein Tipp zu jedem Bereich, große Tippflächen, nichts versteckt; der Projekt-Schnellzugriff ist nur im Querformat da (im Hochformat über die Projektseite).
+- Systemstatus (Version, Build, Speicher, Datenbank) steht jetzt in den Einstellungen; Demo-Daten („Testprojekt anlegen“) unter Entwickler (/dev/ui).
+- CSP-Hinweise: React-`style`-Props sind erlaubt (CSSOM, kein style-Attribut). `AnimatePresence mode="popLayout"` nicht verwenden – injiziert ein <style>-Element, das die CSP blockiert.
+- Lint (react-hooks 7 / React Compiler-Regeln): keine Komponenten aus Funktionsaufrufen in JSX (`const Icon = projectIcon(..)` → `ProjectAvatar` mit createElement), kein setState synchron im Effect, keine Ref-Zugriffe im Render. Fehler mit Namen „NotFoundError“ meiden (siehe oben).
+- Overlays (Modal, BottomSheet, ActionMenu, Tooltip) rendern per Portal in <body>; Fokus-Falle und Esc über `src/components/ui/hooks/`. BottomSheet schließt per Wischen am Griff/Kopf (dragControls), damit Inhalte scrollbar bleiben.
+- E2E prüft jetzt auch Konsolen-Warnungen, Navigation, Theme-Persistenz und Entwicklermodus. `npm run screenshots` erzeugt pro Variante projects, brain, settings(+Scroll), dev-ui(+Scroll), dev-modal, dev-sheet, dev-menu, projects-with-data.

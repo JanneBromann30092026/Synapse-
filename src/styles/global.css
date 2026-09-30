@@ -1,10 +1,8 @@
 @import 'tailwindcss';
-
-/* Design tokens follow in step 3 (src/styles/tokens.css). */
+@import './tokens.css';
 
 @layer base {
   html {
-    color-scheme: dark light;
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
   }
@@ -20,20 +18,113 @@
     min-height: 100dvh;
     overflow: hidden;
     overscroll-behavior: none;
-    font-family:
-      system-ui,
-      -apple-system,
-      'Hiragino Sans',
-      'Noto Sans JP',
-      sans-serif;
-    background: #f5f6f8;
-    color: #10131a;
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01';
+    background: var(--bg);
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
   }
 
-  @media (prefers-color-scheme: dark) {
-    body {
-      background: #0b0d12;
-      color: #eceef3;
-    }
+  /* iOS zooms into inputs with a font size below 16px. */
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
   }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: default;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+}
+
+@utility focus-ring {
+  outline: none;
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@utility no-callout {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@utility scroll-area {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Background shapes (src/app/Background.tsx): pre-rendered gradients, transform only. */
+.bg-shape {
+  position: absolute;
+  border-radius: 9999px;
+  opacity: var(--bg-shape-opacity);
+  will-change: transform;
+}
+
+.bg-shape-1 {
+  width: 70vmax;
+  height: 70vmax;
+  top: -25vmax;
+  left: -20vmax;
+  background: radial-gradient(closest-side, var(--accent), transparent);
+  animation: bg-drift-1 48s ease-in-out infinite alternate;
+}
+
+.bg-shape-2 {
+  width: 60vmax;
+  height: 60vmax;
+  bottom: -25vmax;
+  right: -18vmax;
+  background: radial-gradient(closest-side, var(--project-sky), transparent);
+  animation: bg-drift-2 60s ease-in-out infinite alternate;
+}
+
+.bg-shape-3 {
+  width: 38vmax;
+  height: 38vmax;
+  top: 35%;
+  left: 45%;
+  border-radius: 30%;
+  background: radial-gradient(closest-side, var(--project-pink), transparent);
+  animation: bg-drift-3 36s ease-in-out infinite alternate;
+}
+
+@keyframes bg-drift-1 {
+  to {
+    transform: translate3d(12vmax, 8vmax, 0) scale(1.08);
+  }
+}
+
+@keyframes bg-drift-2 {
+  to {
+    transform: translate3d(-10vmax, -6vmax, 0) scale(0.94);
+  }
+}
+
+@keyframes bg-drift-3 {
+  to {
+    transform: translate3d(-14vmax, 10vmax, 0) rotate(40deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-shape {
+    animation: none;
+  }
+}
+
+:root[data-reduce-motion] .bg-shape {
+  animation: none;
 }

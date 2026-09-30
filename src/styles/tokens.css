@@ -1,0 +1,189 @@
+/*
+ * Design tokens. Themes via data-theme on <html> (set before the first render in main.tsx).
+ * Without data-theme the system preference applies (media query fallback below).
+ * Keep the dark values in both dark blocks identical.
+ */
+
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #eceef2;
+  --border: rgba(15, 20, 30, 0.08);
+  --border-strong: rgba(15, 20, 30, 0.14);
+  --fg: #10131a;
+  --fg-secondary: #555d6e;
+  --fg-muted: #8a91a1;
+  --overlay: rgba(16, 19, 26, 0.28);
+
+  --accent: #6d5ef5;
+  --accent-strong: #5a4ae6;
+  --accent-soft: rgba(109, 94, 245, 0.12);
+  --accent-glow: rgba(109, 94, 245, 0.35);
+  --on-accent: #ffffff;
+  --success: #10b981;
+  --success-soft: rgba(16, 185, 129, 0.12);
+  --success-glow: rgba(16, 185, 129, 0.35);
+  --danger: #f43f5e;
+  --danger-soft: rgba(244, 63, 94, 0.12);
+  --danger-glow: rgba(244, 63, 94, 0.35);
+  --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.14);
+  --warning-glow: rgba(245, 158, 11, 0.35);
+
+  --shadow-color: rgba(16, 19, 26, 0.12);
+  --highlight: transparent;
+  --bg-shape-opacity: 0.1;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b0d12;
+  --surface: #12151c;
+  --surface-raised: #181c25;
+  --surface-sunken: #0e1016;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
+  --fg: #eceef3;
+  --fg-secondary: #9aa1b2;
+  --fg-muted: #5f6678;
+  --overlay: rgba(0, 0, 0, 0.5);
+
+  --accent: #6d5ef5;
+  --accent-strong: #8174f7;
+  --accent-soft: rgba(109, 94, 245, 0.16);
+  --accent-glow: rgba(109, 94, 245, 0.45);
+  --on-accent: #ffffff;
+  --success: #10b981;
+  --success-soft: rgba(16, 185, 129, 0.16);
+  --success-glow: rgba(16, 185, 129, 0.45);
+  --danger: #f43f5e;
+  --danger-soft: rgba(244, 63, 94, 0.16);
+  --danger-glow: rgba(244, 63, 94, 0.45);
+  --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.16);
+  --warning-glow: rgba(245, 158, 11, 0.45);
+
+  --shadow-color: rgba(0, 0, 0, 0.45);
+  --highlight: rgba(255, 255, 255, 0.06);
+  --bg-shape-opacity: 0.14;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: #0b0d12;
+    --surface: #12151c;
+    --surface-raised: #181c25;
+    --surface-sunken: #0e1016;
+    --border: rgba(255, 255, 255, 0.07);
+    --border-strong: rgba(255, 255, 255, 0.13);
+    --fg: #eceef3;
+    --fg-secondary: #9aa1b2;
+    --fg-muted: #5f6678;
+    --overlay: rgba(0, 0, 0, 0.5);
+    --accent-strong: #8174f7;
+    --accent-soft: rgba(109, 94, 245, 0.16);
+    --accent-glow: rgba(109, 94, 245, 0.45);
+    --success-soft: rgba(16, 185, 129, 0.16);
+    --success-glow: rgba(16, 185, 129, 0.45);
+    --danger-soft: rgba(244, 63, 94, 0.16);
+    --danger-glow: rgba(244, 63, 94, 0.45);
+    --warning-soft: rgba(245, 158, 11, 0.16);
+    --warning-glow: rgba(245, 158, 11, 0.45);
+    --shadow-color: rgba(0, 0, 0, 0.45);
+    --highlight: rgba(255, 255, 255, 0.06);
+    --bg-shape-opacity: 0.14;
+  }
+}
+
+/* Project palette (token names = ProjectColor in src/data/types.ts). */
+:root {
+  --project-indigo: #6366f1;
+  --project-indigo-soft: rgba(99, 102, 241, 0.14);
+  --project-violet: #8b5cf6;
+  --project-violet-soft: rgba(139, 92, 246, 0.14);
+  --project-pink: #ec4899;
+  --project-pink-soft: rgba(236, 72, 153, 0.14);
+  --project-rose: #f43f5e;
+  --project-rose-soft: rgba(244, 63, 94, 0.14);
+  --project-orange: #f97316;
+  --project-orange-soft: rgba(249, 115, 22, 0.14);
+  --project-amber: #f59e0b;
+  --project-amber-soft: rgba(245, 158, 11, 0.14);
+  --project-emerald: #10b981;
+  --project-emerald-soft: rgba(16, 185, 129, 0.14);
+  --project-teal: #14b8a6;
+  --project-teal-soft: rgba(20, 184, 166, 0.14);
+  --project-sky: #0ea5e9;
+  --project-sky-soft: rgba(14, 165, 233, 0.14);
+  --project-slate: #64748b;
+  --project-slate-soft: rgba(100, 116, 139, 0.16);
+}
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-muted: var(--fg-muted);
+  --color-overlay: var(--overlay);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-glow: var(--accent-glow);
+  --color-on-accent: var(--on-accent);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-glow: var(--success-glow);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-glow: var(--danger-glow);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-glow: var(--warning-glow);
+
+  --shadow-soft: 0 1px 2px var(--shadow-color), inset 0 1px 0 var(--highlight);
+  --shadow-card: 0 10px 30px -14px var(--shadow-color), inset 0 1px 0 var(--highlight);
+  --shadow-float: 0 24px 60px -20px var(--shadow-color), inset 0 1px 0 var(--highlight);
+}
+
+@theme {
+  --font-sans:
+    'Inter Variable', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', system-ui,
+    sans-serif;
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 26px;
+  --text-xl: 22px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 28px;
+  --text-2xl--line-height: 34px;
+  --text-3xl: 36px;
+  --text-3xl--line-height: 42px;
+  --text-4xl: 48px;
+  --text-4xl--line-height: 54px;
+
+  --breakpoint-wide: 900px;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}

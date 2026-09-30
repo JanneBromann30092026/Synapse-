@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { RefreshCw, WifiOff, X } from 'lucide-react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { de } from '@/i18n/de';
+import { spring } from '@/styles/motion';
 
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const OFFLINE_READY_VISIBLE_MS = 4000;
@@ -36,7 +37,7 @@ export function UpdatePrompt() {
   const visible = needRefresh || offlineReady;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] wide:pb-[max(1rem,env(safe-area-inset-bottom))]">
       <AnimatePresence>
         {visible && (
           <motion.div
@@ -44,8 +45,8 @@ export function UpdatePrompt() {
             initial={{ opacity: 0, y: 24, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="pointer-events-auto flex items-center gap-2 rounded-full border border-black/10 bg-white py-1.5 pr-1.5 pl-5 text-base shadow-lg dark:border-white/10 dark:bg-[#181c25]"
+            transition={spring.default}
+            className="pointer-events-auto flex items-center gap-2 rounded-full border border-line bg-surface-raised py-1.5 pr-1.5 pl-5 text-base text-fg shadow-float"
           >
             {needRefresh ? (
               <>
@@ -53,7 +54,7 @@ export function UpdatePrompt() {
                 <button
                   type="button"
                   onClick={() => void updateServiceWorker(true)}
-                  className="flex min-h-11 items-center gap-2 rounded-full bg-[#6d5ef5] px-4 font-medium text-white active:scale-[0.97]"
+                  className="focus-ring flex min-h-11 items-center gap-2 rounded-full bg-accent px-4 font-medium text-on-accent active:scale-[0.97]"
                 >
                   <RefreshCw size={18} aria-hidden />
                   {de.pwa.reload}
@@ -61,7 +62,7 @@ export function UpdatePrompt() {
               </>
             ) : (
               <>
-                <WifiOff size={18} aria-hidden className="text-[#10b981]" />
+                <WifiOff size={18} aria-hidden className="text-success" />
                 <span className="pr-2 font-medium">{de.pwa.offlineReady}</span>
               </>
             )}
@@ -72,7 +73,7 @@ export function UpdatePrompt() {
                 setNeedRefresh(false);
                 setOfflineReady(false);
               }}
-              className="flex size-11 items-center justify-center rounded-full text-black/50 active:scale-[0.97] dark:text-white/50"
+              className="focus-ring flex size-11 items-center justify-center rounded-full text-fg-muted active:scale-[0.97]"
             >
               <X size={18} aria-hidden />
             </button>
