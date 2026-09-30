@@ -7,6 +7,7 @@ import { ProjectPage } from '@/features/projects/ProjectPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { StatsPage } from '@/features/stats/StatsPage';
+import { StudyLaunchOverlay } from '@/features/study/StudyLaunchOverlay';
 import { StudyPage } from '@/features/study/StudyPage';
 import { de } from '@/i18n/de';
 import { easeOut } from '@/styles/motion';
@@ -71,21 +72,52 @@ function AnimatedRoutes() {
   );
 }
 
+/** The study surface hides the navigation (focus mode). */
+function useFocusMode(): boolean {
+  return useLocation().pathname.startsWith('/study/');
+}
+
 export function Shell() {
   const wide = useMediaQuery(WIDE_LAYOUT_QUERY);
+  const focus = useFocusMode();
+  const reduced = useReducedMotion();
 
   useHotkeys([{ combo: 'mod+k', handler: () => toast.info(de.hotkeys.searchSoon) }]);
 
   return (
     <div className="relative flex h-dvh overflow-hidden" data-layout={wide ? 'wide' : 'narrow'}>
-      {wide && <Sidebar />}
+      <AnimatePresence initial={false}>
+        {wide && !focus && (
+          <motion.div
+            key="sidebar"
+            className="flex shrink-0"
+            initial={{ opacity: 0, x: reduced ? 0 : -24 }}
+            animate={{ opacity: 1, x: 0, transition: { duration: 0.25, ease: easeOut } }}
+            exit={{ opacity: 0, x: reduced ? 0 : -24, transition: { duration: 0.15 } }}
+          >
+            <Sidebar />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="relative flex min-w-0 flex-1 flex-col">
         <DatabaseErrorBanner />
         <main className="relative min-h-0 flex-1">
           <AnimatedRoutes />
         </main>
-        {!wide && <TabBar />}
+        <AnimatePresence initial={false}>
+          {!wide && !focus && (
+            <motion.div
+              key="tabbar"
+              initial={{ opacity: 0, y: reduced ? 0 : 24 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.25, ease: easeOut } }}
+              exit={{ opacity: 0, y: reduced ? 0 : 24, transition: { duration: 0.15 } }}
+            >
+              <TabBar />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+      <StudyLaunchOverlay />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { animate, motion } from 'motion/react';
 import { useReducedMotion } from '@/styles/useReducedMotion';
 import { cn } from './cn';
@@ -20,7 +20,7 @@ function colorFor(value: number): string {
   return 'var(--danger)';
 }
 
-/** Animated SVG ring; the percentage counts up. */
+/** Animated SVG ring; the percentage counts up (from 0 on mount, then from the last value). */
 export function ProgressRing({
   value,
   label,
@@ -34,14 +34,19 @@ export function ProgressRing({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const [animated, setAnimated] = useState(0);
+  // Later changes continue from the value shown (e.g. the live round status).
+  const from = useRef(0);
   const shown = reduced ? clamped : animated;
 
   useEffect(() => {
     if (reduced) return;
-    const controls = animate(0, clamped, {
+    const controls = animate(from.current, clamped, {
       duration: 1.1,
       ease: [0.22, 1, 0.36, 1],
-      onUpdate: setAnimated,
+      onUpdate: (latest) => {
+        from.current = latest;
+        setAnimated(latest);
+      },
     });
     return () => controls.stop();
   }, [clamped, reduced]);
