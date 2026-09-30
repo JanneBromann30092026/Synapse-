@@ -75,7 +75,7 @@ Touch-first (iPad):
 - [x] 2 Datenbank & Datenmodell
 - [x] 3 Design-System & App-Shell
 - [x] 4 Projektverwaltung
-- [ ] 5 Karteikartenverwaltung
+- [x] 5 Karteikartenverwaltung
 - [ ] 6 Einstellungen & KI-Anbindung
 - [ ] 7 Bewertungs-Engine
 - [ ] 8 Lernmodus – Session-Logik
@@ -118,5 +118,11 @@ Touch-first (iPad):
 - motion-`layout` (Hinzufügen/Löschen/Filtern) ist während des Sortierens aus, sonst kämpft es mit den dnd-kit-Transforms. Neue Reihenfolge wird optimistisch angezeigt, bis liveQuery die gespeicherte sortOrder liefert; bei Suche/Filter behalten ausgeblendete Projekte ihre Plätze (`mergeVisibleOrder` in src/core/projectList.ts).
 - Projektkarte: ganzflächiger Link als Overlay (keine verschachtelten Buttons in Links), Inhalte `pointer-events-none`, Buttons darüber. `ProjectCardView` dient auch als Live-Vorschau im Dialog.
 - Dialoge (Modal, BottomSheet) weichen der Bildschirmtastatur über `useKeyboardInset` (visualViewport) aus.
-- Demo-Daten: /dev/ui → „Beispielprojekte anlegen“ (5 Projekte mit Karten und teils Lernsession; Inhalte in `de.dev.sampleProjects`).
 - E2E `e2e/projects.spec.ts`: Anlegen/Validierung/Bearbeiten/Archivieren/Löschen, Suche, Maus-Drag, echte Touch-Gesten per CDP (`Input.dispatchTouchEvent`: Long-Press → Menü, Long-Press + Ziehen → Sortieren).
+- Schritt 5 (Karten): Demo-Daten jetzt über /dev/ui → „Demo-Daten laden“ (`src/features/dev/demoData.ts`, idempotent nach Projektname; ersetzt die Beispielprojekte aus Schritt 4). Inhalte sind Demo-Daten, keine UI-Texte, daher nicht in de.ts. BWL und Aktien überschneiden sich bewusst (Cashflow, Eigenkapitalrendite, Eigenkapitalquote …) für das Gehirn.
+- Reine Karten-Logik in `src/core/cards.ts`: `normalizeCardText` (NFKC, Kleinschreibung, Leerraum; Hiragana ≠ Katakana), `parseAnswers` (Semikolon-getrennte Mehrfachantworten), `parseTags`/`mergeTags`/`collectTags`.
+- IME (japanische Eingabe): `ImeGuard` (src/core/ime.ts) + `useImeGuard` für alle Textfelder mit Enter-Aktionen. Blockiert bei `isComposing`, keyCode 229 und bis 60 ms nach `compositionend` (Safari schickt das bestätigende Enter danach ohne Flag).
+- Editor (`src/features/cards/CardEditor.tsx`): Return auf der Vorderseite springt zur Rückseite, Return auf der Rückseite speichert (Shift+Return = Zeilenumbruch), ⌘/Strg+Return speichert, Esc schließt. Buttons verhindern `mousedown`-Fokus, damit die iPad-Bildschirmtastatur beim „Speichern & nächste“ offen bleibt; Tags bleiben für die nächste Karte stehen. Duplikatprüfung erst beim Speichern (`cardsRepo.findDuplicate`), „Trotzdem speichern“ gilt für genau diese Vorderseite.
+- Kartenliste: Wischen nach links als eigene Pointer-Geste (CardRow) mit `touch-pan-y` (vertikales Scrollen bleibt nativ). Nicht motion-`drag` verwenden: es misst die Position einmal und setzt nach Filtern/Bearbeiten einen veralteten translateY-Versatz; die Aktionen darunter sind unsichtbar, solange die Zeile geschlossen ist (sonst schimmern sie an den runden Ecken durch). Nur eine Zeile gleichzeitig offen. Raster-Karten drehen per 3D-Flip (Tailwind `perspective-[…]`, `transform-3d`, `backface-hidden`).
+- Tastaturkürzel auf der Projektseite: „n“ öffnet den Editor.
+- E2E `e2e/cards.spec.ts`: Schnellerfassung inkl. IME-Events, Tags, Duplikate, Demo-Daten (idempotent), Suche, Tag-Filter, Bearbeiten, Wischen (echte Touch-Events per CDP), Raster-Flip, Auswahl verschieben/löschen.

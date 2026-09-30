@@ -17,50 +17,94 @@ interface Shot {
   scroll?: boolean;
 }
 
-async function enableDevModeWithSamples(page: Page) {
+async function enableDevModeWithDemoData(page: Page) {
   await page.goto(`${PREVIEW_URL}#/settings`);
   const toggle = page.getByRole('switch', { name: 'Entwicklermodus' });
   if ((await toggle.getAttribute('aria-checked')) !== 'true') await toggle.click();
   await page.goto(`${PREVIEW_URL}#/dev/ui`);
-  await page.getByRole('button', { name: 'Beispielprojekte anlegen' }).click();
-  await page.getByTestId('project-count').filter({ hasText: '5' }).waitFor();
+  await page.getByRole('button', { name: 'Demo-Daten laden' }).click();
+  await page.getByTestId('project-count').filter({ hasText: '3' }).waitFor();
 }
 
-const click = (name: string) => async (page: Page) => {
-  const target = page.getByRole('button', { name }).first();
-  await target.scrollIntoViewIfNeeded();
-  await target.click();
+const openProject = (name: string) => async (page: Page) => {
+  await page.getByRole('link', { name: `${name} öffnen` }).click();
+  await page.getByRole('heading', { level: 1, name }).waitFor();
+  await page.waitForTimeout(400);
 };
 
-async function openFilledDialog(page: Page) {
-  await page.getByRole('button', { name: 'Neues Projekt' }).first().click();
-  const dialog = page.getByRole('dialog', { name: 'Neues Projekt' });
-  await dialog.getByLabel('Name').fill('Spanisch');
-  await dialog.getByLabel('Beschreibung').fill('Reisewortschatz für den Sommer');
-  await dialog.getByRole('radio', { name: 'Orange' }).click();
-  await dialog.getByRole('radio', { name: 'plane' }).click();
+async function openGridView(page: Page) {
+  await openProject('BWL-Grundbegriffe')(page);
+  await page.getByRole('button', { name: 'Rasteransicht' }).click();
+  await page.waitForTimeout(400);
+  await page.getByTestId('card-tile').nth(1).getByRole('button').first().click();
 }
 
-async function openDeleteConfirm(page: Page) {
-  await page.getByRole('button', { name: 'Aktionen für Japanisch' }).click();
-  await page.getByRole('menuitem', { name: 'Löschen' }).click();
+async function openEditorWithCounter(page: Page) {
+  await openProject('Japanisch Grundwortschatz')(page);
+  await page.getByRole('button', { name: 'Karte hinzufügen' }).click();
+  await page.getByTestId('card-front').fill('魚');
+  await page.getByTestId('card-back').fill('Fisch');
+  await page.getByRole('button', { name: 'Speichern & nächste' }).click();
+  await page.getByText('1 Karte in dieser Sitzung hinzugefügt').waitFor();
+  await page.getByTestId('card-front').fill('鳥');
+  await page.getByTestId('card-back').fill('Vogel; Huhn');
+  await page.getByRole('button', { name: 'Notizen oder Kontext hinzufügen' }).click();
+  await page.getByLabel('Notizen / Kontext').fill('とり · tori');
+}
+
+async function openDuplicateWarning(page: Page) {
+  await openProject('Japanisch Grundwortschatz')(page);
+  await page.getByRole('button', { name: 'Karte hinzufügen' }).click();
+  await page.getByTestId('card-front').fill('犬');
+  await page.getByTestId('card-back').fill('Hund');
+  await page.getByRole('button', { name: 'Speichern & nächste' }).click();
+  await page.getByRole('button', { name: 'Trotzdem speichern' }).waitFor();
+}
+
+async function selectCards(page: Page) {
+  await openProject('Aktien & Börse')(page);
+  await page.getByRole('button', { name: 'Auswählen', exact: true }).click();
+  for (const index of [0, 2, 3]) {
+    await page.getByTestId('card-row').nth(index).getByRole('button').first().click();
+  }
+}
+
+async function swipeRow(page: Page) {
+  await openProject('Aktien & Börse')(page);
+  const row = await page.getByTestId('card-row').nth(1).boundingBox();
+  if (!row) return;
+  // Real touch events (like a finger on the iPad).
+  const cdp = await page.context().newCDPSession(page);
+  const y = row.y + row.height / 2;
+  const startX = row.x + row.width * 0.6;
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: startX, y }],
+  });
+  for (let i = 1; i <= 12; i += 1) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ x: startX - (200 * i) / 12, y }],
+    });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
 const SHOTS: Shot[] = [
   { route: '/projects', name: 'projects-empty' },
-  { route: '/settings', name: 'settings' },
-  { route: '/dev/ui', name: 'dev-ui', prepare: enableDevModeWithSamples },
-  { route: '/projects', name: 'projects-grid', scroll: true },
-  { route: '/projects', name: 'project-dialog', prepare: openFilledDialog },
-  { route: '/projects', name: 'project-menu', prepare: click('Aktionen für BWL-Begriffe') },
-  { route: '/projects', name: 'project-delete', prepare: openDeleteConfirm },
+  { route: '/dev/ui', name: 'dev-ui', prepare: enableDevModeWithDemoData },
+  { route: '/projects', name: 'projects-grid' },
   {
     route: '/projects',
-    name: 'projects-search',
-    prepare: async (page) => {
-      await page.getByRole('searchbox', { name: 'Projekte suchen' }).fill('isch');
-    },
+    name: 'project-list',
+    prepare: openProject('Aktien & Börse'),
+    scroll: true,
   },
+  { route: '/projects', name: 'project-grid-view', prepare: openGridView },
+  { route: '/projects', name: 'card-editor', prepare: openEditorWithCounter },
+  { route: '/projects', name: 'card-duplicate', prepare: openDuplicateWarning },
+  { route: '/projects', name: 'project-select', prepare: selectCards },
+  { route: '/projects', name: 'project-swipe', prepare: swipeRow },
 ];
 
 const VARIANTS: { name: string; options: BrowserContextOptions }[] = [
