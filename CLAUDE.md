@@ -79,7 +79,7 @@ Touch-first (iPad):
 - [x] 6 Einstellungen & KI-Anbindung
 - [x] 7 Bewertungs-Engine
 - [x] 8 Lernmodus – Session-Logik
-- [ ] 9 Lernmodus – UI & Animationen
+- [x] 9 Lernmodus – UI & Animationen
 - [ ] 10 Lernmodus – Rundenende & Wiederholung
 - [ ] 11 Lernhistorie & Statistik
 - [ ] 12 Gehirn – lokale Embeddings & Verknüpfungen
