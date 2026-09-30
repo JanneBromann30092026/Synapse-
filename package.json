@@ -21,6 +21,8 @@
     "icons": "node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/generate-icons.ts"
   },
   "dependencies": {
+    "dexie": "^4.4.6",
+    "dexie-react-hooks": "^4.4.0",
     "lucide-react": "^1.49.0",
     "motion": "^13.4.6",
     "react": "^19.3.0",
@@ -41,6 +43,7 @@
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
+    "fake-indexeddb": "^6.2.5",
     "globals": "^17.12.0",
     "prettier": "^3.9.9",
     "sharp": "^0.35.5",

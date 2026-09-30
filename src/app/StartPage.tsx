@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { formatBytes } from '@/core/format';
 import { de } from '@/i18n/de';
+import { DatabaseSection } from './DatabaseSection';
 import { useAppStatus } from './useAppStatus';
 
 const t = de.start;
@@ -29,7 +30,7 @@ function StatusRow({ label, value, testId }: { label: string; value: ReactNode; 
   );
 }
 
-/** Placeholder start page (step 1): proves build, PWA install and storage work. */
+/** Placeholder start page: proves build, PWA install, storage and database work. */
 export function StartPage() {
   const storage = useAppStatus((s) => s.storage);
   const standalone = useAppStatus((s) => s.standalone);
@@ -85,6 +86,8 @@ export function StartPage() {
           <StatusRow label={t.storageUsed} value={storageUsed} testId="storage-used" />
         </dl>
       </section>
+
+      <DatabaseSection />
 
       {!standalone && (
         <p className="text-center text-sm text-black/50 dark:text-white/45">{t.installHint}</p>

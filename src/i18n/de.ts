@@ -21,8 +21,27 @@ export const de = {
     no: 'Nein',
     unsupported: 'Nicht unterstützt',
     loading: 'Wird geprüft …',
+    databaseHeading: 'Datenbank',
+    databaseStatus: 'Lokale Datenbank',
+    databaseReady: 'Bereit',
+    projectCount: 'Projekte',
+    createTestProject: 'Testprojekt anlegen',
+    testProjectName: (n: number) => `Testprojekt ${n}`,
+    testProjectHint:
+      'Lege ein Testprojekt an und lade die Seite neu – die Anzahl muss erhalten bleiben.',
+    saveFailed: 'Speichern fehlgeschlagen. Bitte erneut versuchen.',
     installHint:
       'Tipp: In Safari über „Teilen“ → „Zum Home-Bildschirm“ installieren. Nur so bleiben deine Daten zuverlässig erhalten.',
+  },
+  database: {
+    errors: {
+      unavailable:
+        'Die lokale Datenbank ist nicht verfügbar. Bitte nicht im privaten Modus öffnen und Website-Daten in den Safari-Einstellungen erlauben.',
+      quota: 'Der Gerätespeicher ist voll. Bitte Speicher freigeben und die App neu starten.',
+      version:
+        'Die gespeicherten Daten stammen aus einer neueren App-Version. Bitte die App neu laden, um das Update zu erhalten.',
+      unknown: 'Die lokale Datenbank konnte nicht geöffnet werden. Bitte die App neu starten.',
+    },
   },
   pwa: {
     updateAvailable: 'Update verfügbar',

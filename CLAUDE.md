@@ -72,7 +72,7 @@ Touch-first (iPad):
 ## Roadmap
 - [x] 0 Projektkontext (CLAUDE.md)
 - [x] 1 Projekt-Setup, PWA & Deployment
-- [ ] 2 Datenbank & Datenmodell
+- [x] 2 Datenbank & Datenmodell
 - [ ] 3 Design-System & App-Shell
 - [ ] 4 Projektverwaltung
 - [ ] 5 Karteikartenverwaltung
@@ -96,3 +96,11 @@ Touch-first (iPad):
 - Icons: public/icons/favicon.svg ist die Quelle; PNGs mit `npm run icons` (sharp) erzeugen und einchecken.
 - Playwright: iPad-Profile in e2e/ipad.ts (Chromium mit iPad-User-Agent, de-DE, Europe/Berlin). `npm run e2e` baut und startet vite preview selbst; Smoke-Test prüft Konsolenfehler, Manifest und Offline-Betrieb. `npm run screenshots` erzeugt screenshots/<name>-{landscape,portrait}-{dark,light}.png (Service Worker dort blockiert, damit kein Toast im Bild ist).
 - CI: .github/workflows/ci.yml (PRs: typecheck, lint, format:check, test, build, e2e), deploy.yml (Push auf main → GitHub Pages). Voraussetzung: Settings → Pages → Source "GitHub Actions".
+- Schritt 2 (Datenbank): Dexie 4 (`src/data/db.ts`, Schema Version 1). Migrationen = neue `db.version(n)` mit upgrade, alte Versionen nie ändern. Booleans (archived, includeInBrain, aborted) sind bewusst nicht indiziert (IndexedDB kann keine Booleans indizieren) – Filterung in JS. `openDatabase()` wirft nie, sondern liefert `unavailable | quota | version | unknown`; Texte in `de.database.errors`. Dexie 4 öffnet auch eine neuere On-Disk-Version (App-Rollback), daher tritt `version` praktisch kaum auf.
+- Reaktivität: Komponenten nutzen `useLiveData(() => repo.fn())` aus `src/data/live.ts` (Wrapper um `useLiveQuery` von dexie-react-hooks). Dexie verfolgt, welche Tabellen/Bereiche ein Repository-Aufruf liest, und rendert bei Änderungen (auch aus anderen Tabs) neu. Kein manuelles Neuladen nach Schreibzugriffen nötig; Zustand bleibt für reinen UI-State. In liveQuery-Queriern keine Nicht-Dexie-Async-APIs (z. B. crypto.subtle) aufrufen.
+- Kaskadierendes Löschen in `src/data/cascade.ts`, immer in einer rw-Transaktion über alle abhängigen Tabellen. Projekt löschen entfernt auch seine Sessions samt Antworten und die Graph-Position des Projekt-Hubs; projektübergreifende Sessions ("cross") bleiben erhalten.
+- Fehlertypen: `ValidationError` (field, code, index bei Bulk) und `RecordNotFoundError`. Nicht „NotFoundError“ nennen: Dexie wandelt Fehler mit diesem DOMException-Namen in eigene Fehler um.
+- `cardsRepo.update` löscht den gradingCache der Karte, wenn sich Vorder- oder Rückseite ändern. `bulkCreate` vergibt createdAt im Millisekundenabstand, damit die Import-Reihenfolge erhalten bleibt (Listen sortieren nach [projectId+createdAt]).
+- `lastStudiedAt` in `projectsRepo.list` = Start der letzten Session des Projekts (projektübergreifende Sessions zählen nicht).
+- Tests: fake-indexeddb als Vitest-setupFile; `src/data/__tests__/testDb.ts` leert vor jedem Test alle Tabellen.
+- Bundle ist ~590 kB (187 kB gzip), Vite warnt ab 500 kB (v. a. zod 4 + Dexie). Code-Splitting pro Route ab Schritt 3 einplanen.
