@@ -22,6 +22,10 @@ export interface ProjectCardViewProps {
   /** Top-right slot, e.g. the "⋯" menu button. */
   menu?: ReactNode;
   onStudy?: () => void;
+  /** Shared layoutId of the study button (expands into the study surface). */
+  studyLayoutId?: string;
+  /** The study transition of this project runs (re-renders the button for the shared layout). */
+  launching?: boolean;
   /** Visual state while dragging. */
   lifted?: boolean;
   /** Full-card element below the buttons (e.g. the link that opens the project). */
@@ -34,6 +38,8 @@ export function ProjectCardView({
   project,
   menu,
   onStudy,
+  studyLayoutId,
+  launching = false,
   lifted = false,
   overlay,
   className,
@@ -95,13 +101,15 @@ export function ProjectCardView({
           size="sm"
           variant="secondary"
           icon={Play}
+          layoutId={studyLayoutId}
+          data-launching={launching || undefined}
           onClick={onStudy}
           tabIndex={onStudy ? undefined : -1}
           // Taps on the button must not start dragging the card.
           onMouseDown={(event) => event.stopPropagation()}
           onTouchStart={(event) => event.stopPropagation()}
           className="pointer-events-auto relative z-10 border-transparent shadow-none hover:border-transparent hover:brightness-110"
-          style={{ background: soft, color }}
+          style={{ background: soft, color, borderRadius: 22 }}
         >
           {t.study}
         </Button>

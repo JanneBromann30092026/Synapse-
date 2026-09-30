@@ -40,6 +40,7 @@ import { CardTile } from '@/features/cards/CardTile';
 import { useCards, useDebouncedValue } from '@/features/cards/hooks';
 import { de } from '@/i18n/de';
 import { spring } from '@/styles/motion';
+import { studyLayoutId, useLaunchStudy, useStudyLaunch } from '@/features/study/studyLaunch';
 import { useProject, useProjects } from './hooks';
 import { ProjectDialog } from './ProjectDialog';
 
@@ -69,6 +70,9 @@ export function ProjectPage() {
   const project = useProject(projectId);
   const projects = useProjects();
   const allCards = useCards(projectId);
+  const launchStudy = useLaunchStudy();
+  // Re-renders the study button when the launch starts, so the shared layout has its position.
+  const launching = useStudyLaunch((s) => s.stage !== 'idle' && s.projectId === projectId);
 
   const [query, setQuery] = useState('');
   const search = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
@@ -217,7 +221,14 @@ export function ProjectPage() {
             {de.pages.projects.cardCount(cardCount)}
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" icon={Play} onClick={() => void navigate(`/study/${project.id}`)}>
+            <Button
+              size="lg"
+              icon={Play}
+              layoutId={studyLayoutId(project.id)}
+              data-launching={launching || undefined}
+              style={{ borderRadius: 28 }}
+              onClick={() => launchStudy(project, `/projects/${project.id}`)}
+            >
               {t.study}
             </Button>
             <Button size="lg" variant="secondary" icon={Plus} onClick={openCreate}>

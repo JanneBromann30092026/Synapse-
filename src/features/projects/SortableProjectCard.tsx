@@ -7,6 +7,7 @@ import { cn, IconButton, type MenuAnchor } from '@/components/ui';
 import type { ProjectSummary } from '@/data/types';
 import { de } from '@/i18n/de';
 import { spring, TAP_SCALE } from '@/styles/motion';
+import { studyLayoutId, useStudyLaunch } from '@/features/study/studyLaunch';
 import { ProjectCardView } from './ProjectCard';
 
 const t = de.pages.projects;
@@ -28,6 +29,8 @@ export function SortableProjectCard({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: project.id,
   });
+  // Re-renders the study button when the launch starts, so the shared layout has its position.
+  const launching = useStudyLaunch((s) => s.stage !== 'idle' && s.projectId === project.id);
 
   return (
     <motion.li
@@ -68,7 +71,9 @@ export function SortableProjectCard({
           <ProjectCardView
             project={project}
             lifted={isDragging}
+            launching={launching}
             onStudy={() => onStudy(project)}
+            studyLayoutId={layoutEnabled && !isDragging ? studyLayoutId(project.id) : undefined}
             className={cn('group-hover:shadow-[0_24px_50px_-24px_var(--project)]')}
             overlay={
               <Link

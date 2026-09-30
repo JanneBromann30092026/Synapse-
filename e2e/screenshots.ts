@@ -1,6 +1,6 @@
 /**
  * Creates iPad screenshots of the production build (vite preview).
- * Usage: npm run screenshots  →  screenshots/*.png
+ * Usage: npm run screenshots  →  screenshots/*.png (SHOTS=study for one group)
  */
 import { mkdirSync } from 'node:fs';
 import { chromium, type BrowserContextOptions, type Page } from '@playwright/test';
@@ -148,6 +148,212 @@ async function sessionPlayground(page: Page) {
   await section.evaluate((element) => element.scrollIntoView({ block: 'start' }));
 }
 
+/** Height of the iPad on-screen keyboard per orientation (approx., without the shortcut bar). */
+const KEYBOARD_HEIGHT = { landscape: 400, portrait: 330 };
+
+/**
+ * Chromium has no on-screen keyboard: a fake visualViewport lets the app lay out as with the
+ * iPad keyboard (height via window.__setKeyboard), a grey block shows where the keyboard sits.
+ */
+function simulatedKeyboardScript() {
+  const events = new EventTarget();
+  let keyboard = 0;
+  const viewport = {
+    get width() {
+      return window.innerWidth;
+    },
+    get height() {
+      return window.innerHeight - keyboard;
+    },
+    offsetTop: 0,
+    offsetLeft: 0,
+    pageTop: 0,
+    pageLeft: 0,
+    scale: 1,
+    addEventListener: events.addEventListener.bind(events),
+    removeEventListener: events.removeEventListener.bind(events),
+  };
+  Object.defineProperty(window, 'visualViewport', { get: () => viewport });
+  Object.assign(window, {
+    __setKeyboard: (height: number) => {
+      keyboard = height;
+      events.dispatchEvent(new Event('resize'));
+      document.getElementById('e2e-keyboard')?.remove();
+      if (!height) return;
+      const block = document.createElement('div');
+      block.id = 'e2e-keyboard';
+      block.textContent = 'Bildschirmtastatur (simuliert)';
+      Object.assign(block.style, {
+        position: 'fixed',
+        left: '0',
+        right: '0',
+        bottom: '0',
+        height: `${height}px`,
+        zIndex: '2147483647',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        font: '500 15px system-ui',
+        color: '#6b7280',
+        background: 'repeating-linear-gradient(0deg, #d1d5db 0 1px, #e5e7eb 1px 58px)',
+        pointerEvents: 'none',
+      });
+      document.body.append(block);
+    },
+  });
+}
+
+async function setKeyboard(page: Page, on: boolean) {
+  const landscape = (page.viewportSize()?.width ?? 0) > (page.viewportSize()?.height ?? 0);
+  const height = on ? KEYBOARD_HEIGHT[landscape ? 'landscape' : 'portrait'] : 0;
+  await page.evaluate(
+    (h) => (window as unknown as { __setKeyboard: (n: number) => void }).__setKeyboard(h),
+    height,
+  );
+  await page.waitForTimeout(250);
+}
+
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-headers': '*',
+  'content-type': 'application/json',
+};
+
+/** Mocked grading endpoint (no real API call): answers after `delayMs`. */
+async function mockGrading(page: Page, delayMs: number) {
+  await page.unroute('https://api.anthropic.com/**');
+  await page.route('https://api.anthropic.com/**', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: CORS });
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await route
+      .fulfill({
+        status: 200,
+        headers: CORS,
+        body: JSON.stringify({
+          id: 'msg_screenshot',
+          type: 'message',
+          role: 'assistant',
+          model: 'claude-haiku-4-5-20251001',
+          content: [
+            {
+              type: 'tool_use',
+              id: 'toolu_screenshot',
+              name: 'submit_grade',
+              input: {
+                feedback: 'Richtig – sinngemäß genau die gesuchte Bedeutung.',
+                verdict: 'correct',
+                confidence: 0.92,
+              },
+            },
+          ],
+          stop_reason: 'tool_use',
+          stop_sequence: null,
+          usage: { input_tokens: 10, output_tokens: 10 },
+        }),
+      })
+      .catch(() => undefined);
+  });
+}
+
+async function setAiProvider(page: Page, provider: 'Anthropic' | 'Aus') {
+  await page.goto(`${PREVIEW_URL}#/settings`);
+  // No restored round from the previous shot (sessionStorage survives reloads).
+  await page.evaluate(() => sessionStorage.clear());
+  const ai = page.getByTestId('settings-ai');
+  await ai.getByRole('radio', { name: provider }).click();
+  if (
+    provider === 'Anthropic' &&
+    (await ai.getByTestId('api-key-status').textContent()) !== 'Key hinterlegt'
+  ) {
+    await ai
+      .getByLabel('API-Key', { exact: true })
+      .fill('sk-ant-api03-screenshot-0123456789abcdef');
+    await ai.getByRole('button', { name: 'Key speichern' }).click();
+    await ai.getByTestId('api-key-status').filter({ hasText: 'Key hinterlegt' }).waitFor();
+  }
+  await page.waitForTimeout(200);
+  await page.goto(`${PREVIEW_URL}#/projects`);
+}
+
+/** Opens a project and starts a round (automatic grading unless `self`). */
+async function startStudy(page: Page, options: { self?: boolean; ai?: boolean } = {}) {
+  await setAiProvider(page, options.ai ? 'Anthropic' : 'Aus');
+  await openProject('Japanisch Grundwortschatz')(page);
+  await page.getByRole('button', { name: 'Lernen', exact: true }).click();
+  await page.getByTestId('study-setup').waitFor();
+  await page.waitForTimeout(500);
+  if (options.self) {
+    await page.getByTestId('study-setup').getByRole('radio', { name: 'Selbstbewertung' }).click();
+  }
+  await page.getByTestId('study-start').click();
+  await page.getByTestId('study-card').waitFor();
+  await page.waitForTimeout(700);
+}
+
+async function studySetup(page: Page) {
+  await setAiProvider(page, 'Aus');
+  await openProject('Japanisch Grundwortschatz')(page);
+  await page.getByRole('button', { name: 'Lernen', exact: true }).click();
+  await page.getByTestId('study-setup').waitFor();
+}
+
+async function studyQuestion(page: Page) {
+  await startStudy(page);
+  await setKeyboard(page, true);
+  await page.getByTestId('study-input').pressSequentially('Hun', { delay: 30 });
+}
+
+async function studyEvaluating(page: Page) {
+  await mockGrading(page, 20_000);
+  await startStudy(page, { ai: true });
+  await setKeyboard(page, true);
+  await page.getByTestId('study-input').fill('ein Wort für etwas anderes');
+  await page.getByTestId('study-input').press('Enter');
+  await page.waitForTimeout(500);
+}
+
+async function studyCorrect(page: Page) {
+  await mockGrading(page, 200);
+  await startStudy(page, { ai: true });
+  await setKeyboard(page, true);
+  await page.getByTestId('study-input').fill('ein Wort für etwas anderes');
+  await page.getByTestId('study-input').press('Enter');
+  await page.getByTestId('study-result').waitFor();
+  await page.waitForTimeout(350);
+}
+
+async function studyWrong(page: Page) {
+  await startStudy(page);
+  await setKeyboard(page, true);
+  await page.getByTestId('study-input').fill('keine Ahnung');
+  await page.getByTestId('study-input').press('Enter');
+  await page.getByTestId('study-result').waitFor();
+}
+
+async function studySelf(page: Page) {
+  await startStudy(page, { self: true });
+  await setKeyboard(page, true);
+  await page.getByTestId('study-input').fill('vielleicht …');
+  await page.getByRole('button', { name: 'Aufdecken' }).click();
+  await page.waitForTimeout(400);
+}
+
+/** Same as the self assessment, without keyboard and with the card dragged to the right. */
+async function studySwipe(page: Page) {
+  await startStudy(page, { self: true });
+  await page.getByRole('button', { name: 'Aufdecken' }).click();
+  await page.waitForTimeout(900);
+  const box = await page.getByTestId('study-card').last().boundingBox();
+  if (!box) return;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width / 2, y);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(box.x + box.width / 2 + i * 14, y);
+}
+
 const SHOTS: Shot[] = [
   { route: '/settings', name: 'settings', scroll: true },
   { route: '/settings', name: 'settings-ai', prepare: settingsWithKey },
@@ -167,6 +373,13 @@ const SHOTS: Shot[] = [
   { route: '/projects', name: 'card-duplicate', prepare: openDuplicateWarning },
   { route: '/projects', name: 'project-select', prepare: selectCards },
   { route: '/projects', name: 'project-swipe', prepare: swipeRow },
+  { route: '/projects', name: 'study-setup', prepare: studySetup },
+  { route: '/projects', name: 'study-question', prepare: studyQuestion },
+  { route: '/projects', name: 'study-evaluating', prepare: studyEvaluating },
+  { route: '/projects', name: 'study-correct', prepare: studyCorrect },
+  { route: '/projects', name: 'study-wrong', prepare: studyWrong },
+  { route: '/projects', name: 'study-self', prepare: studySelf },
+  { route: '/projects', name: 'study-swipe', prepare: studySwipe },
 ];
 
 const VARIANTS: { name: string; options: BrowserContextOptions }[] = [
@@ -175,6 +388,9 @@ const VARIANTS: { name: string; options: BrowserContextOptions }[] = [
   { name: 'portrait-dark', options: { ...IPAD_PORTRAIT, colorScheme: 'dark' } },
   { name: 'portrait-light', options: { ...IPAD_PORTRAIT, colorScheme: 'light' } },
 ];
+
+/** Optional name prefix, e.g. SHOTS=study npm run screenshots. */
+const ONLY = process.env.SHOTS;
 
 const outDir = new URL('../screenshots/', import.meta.url);
 mkdirSync(outDir, { recursive: true });
@@ -194,8 +410,11 @@ try {
       // Keep screenshots free of the "offline ready" toast.
       serviceWorkers: 'block',
     });
+    await context.addInitScript(simulatedKeyboardScript);
     const page = await context.newPage();
-    for (const shot of SHOTS) {
+    // A filtered run still needs the demo data (normally loaded by the dev-ui shot).
+    if (ONLY) await enableDevModeWithDemoData(page);
+    for (const shot of SHOTS.filter((s) => !ONLY || s.name.startsWith(ONLY))) {
       await page.goto(`${PREVIEW_URL}#${shot.route}`, { waitUntil: 'networkidle' });
       // Same hash = no navigation; reload so dialogs from the previous shot are gone.
       await page.reload({ waitUntil: 'networkidle' });

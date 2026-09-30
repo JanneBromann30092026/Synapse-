@@ -128,3 +128,60 @@
 :root[data-reduce-motion] .bg-shape {
   animation: none;
 }
+
+/* Study card (src/features/study/StudyCard.tsx): real 3D flip, Safari needs the prefixes. */
+.card-3d {
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+}
+
+.card-face {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Light running around the card edge while the answer is evaluated (transform only). */
+.card-sweep {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0turn,
+    transparent 0.62turn,
+    var(--accent) 0.82turn,
+    #fff 0.86turn,
+    var(--accent) 0.9turn,
+    transparent 1turn
+  );
+  animation: card-sweep 1.5s linear infinite;
+  will-change: transform;
+}
+
+.card-pulse {
+  animation: card-pulse 1.3s ease-in-out infinite alternate;
+}
+
+@keyframes card-sweep {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes card-pulse {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-sweep,
+  .card-pulse {
+    animation: none;
+  }
+}
+
+:root[data-reduce-motion] .card-sweep,
+:root[data-reduce-motion] .card-pulse {
+  animation: none;
+}

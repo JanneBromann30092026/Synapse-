@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   closestCenter,
@@ -34,6 +33,7 @@ import { filterProjects, mergeVisibleOrder, moveItem } from '@/core/projectList'
 import { projectsRepo } from '@/data/repositories';
 import type { ProjectSummary } from '@/data/types';
 import { de } from '@/i18n/de';
+import { useLaunchStudy } from '@/features/study/studyLaunch';
 import { spring, TAP_SCALE } from '@/styles/motion';
 import { useProjects } from './hooks';
 import { ProjectDialog } from './ProjectDialog';
@@ -77,7 +77,7 @@ function NewProjectTile({ onClick }: { onClick: () => void }) {
 }
 
 export function ProjectsPage() {
-  const navigate = useNavigate();
+  const launchStudy = useLaunchStudy();
   const projects = useProjects();
   const [query, setQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
@@ -314,7 +314,7 @@ export function ProjectsPage() {
                       project={project}
                       layoutEnabled={!sorting}
                       onMenu={(p, anchor) => setMenu({ project: p, anchor })}
-                      onStudy={(p) => void navigate(`/study/${p.id}`)}
+                      onStudy={(p) => launchStudy(p, '/projects')}
                     />
                   ))}
                 </AnimatePresence>
