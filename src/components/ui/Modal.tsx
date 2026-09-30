@@ -6,6 +6,7 @@ import { fade, spring } from '@/styles/motion';
 import { cn } from './cn';
 import { useEscape } from './hooks/useEscape';
 import { useFocusTrap } from './hooks/useFocusTrap';
+import { useKeyboardInset } from './hooks/useKeyboardInset';
 import { IconButton } from './IconButton';
 import { Portal } from './Portal';
 
@@ -47,9 +48,14 @@ function ModalPanel({
   const panel = useRef<HTMLDivElement>(null);
   useFocusTrap(panel, true);
   useEscape(onClose, true);
+  const keyboardInset = useKeyboardInset();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] transition-[padding] duration-200"
+      // Keeps the dialog above the on-screen keyboard.
+      style={keyboardInset ? { paddingBottom: keyboardInset + 16 } : undefined}
+    >
       <motion.div
         className="absolute inset-0 bg-overlay backdrop-blur-sm"
         initial={{ opacity: 0 }}
@@ -88,7 +94,7 @@ function ModalPanel({
           </div>
           <IconButton icon={X} label={de.ui.close} onClick={onClose} className="-mr-2" />
         </header>
-        {children && <div className="scroll-area px-6 pt-4 pb-2">{children}</div>}
+        {children && <div className="scroll-area min-h-0 px-6 pt-4 pb-2">{children}</div>}
         {footer && (
           <footer className="flex flex-wrap justify-end gap-2 px-6 pt-4 pb-6">{footer}</footer>
         )}

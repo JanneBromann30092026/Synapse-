@@ -2,8 +2,7 @@ import { NavLink } from 'react-router';
 import { motion } from 'motion/react';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { cn, IconButton, ProjectAvatar, Tooltip } from '@/components/ui';
-import { useLiveData } from '@/data/live';
-import { projectsRepo } from '@/data/repositories';
+import { useProjects } from '@/features/projects/hooks';
 import { useSettings } from '@/features/settings/settingsStore';
 import { de } from '@/i18n/de';
 import { spring } from '@/styles/motion';
@@ -30,7 +29,7 @@ export function Sidebar() {
   const collapsed = useSettings((s) => s.sidebarCollapsed);
   const devMode = useSettings((s) => s.devMode);
   const setSetting = useSettings((s) => s.set);
-  const projects = useLiveData(() => projectsRepo.list());
+  const projects = useProjects();
   const visibleProjects = projects?.filter((project) => !project.archived) ?? [];
 
   const itemClass = (isActive: boolean) =>

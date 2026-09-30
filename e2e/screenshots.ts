@@ -17,32 +17,50 @@ interface Shot {
   scroll?: boolean;
 }
 
-async function enableDevMode(page: Page) {
+async function enableDevModeWithSamples(page: Page) {
   await page.goto(`${PREVIEW_URL}#/settings`);
   const toggle = page.getByRole('switch', { name: 'Entwicklermodus' });
   if ((await toggle.getAttribute('aria-checked')) !== 'true') await toggle.click();
   await page.goto(`${PREVIEW_URL}#/dev/ui`);
-  await page.getByRole('button', { name: 'Testprojekt anlegen' }).click();
-  await page.getByTestId('project-count').filter({ hasNotText: '0' }).waitFor();
-  await page.getByRole('button', { name: 'Testprojekt anlegen' }).click();
-  await page.getByTestId('project-count').filter({ hasText: '2' }).waitFor();
+  await page.getByRole('button', { name: 'Beispielprojekte anlegen' }).click();
+  await page.getByTestId('project-count').filter({ hasText: '5' }).waitFor();
 }
 
-const openDemo = (button: string) => async (page: Page) => {
-  const target = page.getByRole('button', { name: button });
+const click = (name: string) => async (page: Page) => {
+  const target = page.getByRole('button', { name }).first();
   await target.scrollIntoViewIfNeeded();
   await target.click();
 };
 
+async function openFilledDialog(page: Page) {
+  await page.getByRole('button', { name: 'Neues Projekt' }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Neues Projekt' });
+  await dialog.getByLabel('Name').fill('Spanisch');
+  await dialog.getByLabel('Beschreibung').fill('Reisewortschatz für den Sommer');
+  await dialog.getByRole('radio', { name: 'Orange' }).click();
+  await dialog.getByRole('radio', { name: 'plane' }).click();
+}
+
+async function openDeleteConfirm(page: Page) {
+  await page.getByRole('button', { name: 'Aktionen für Japanisch' }).click();
+  await page.getByRole('menuitem', { name: 'Löschen' }).click();
+}
+
 const SHOTS: Shot[] = [
-  { route: '/projects', name: 'projects' },
-  { route: '/brain', name: 'brain' },
-  { route: '/settings', name: 'settings', scroll: true },
-  { route: '/dev/ui', name: 'dev-ui', prepare: enableDevMode, scroll: true },
-  { route: '/dev/ui', name: 'dev-modal', prepare: openDemo('Modal öffnen') },
-  { route: '/dev/ui', name: 'dev-sheet', prepare: openDemo('Bottom Sheet öffnen') },
-  { route: '/dev/ui', name: 'dev-menu', prepare: openDemo('Weitere Aktionen') },
-  { route: '/projects', name: 'projects-with-data' },
+  { route: '/projects', name: 'projects-empty' },
+  { route: '/settings', name: 'settings' },
+  { route: '/dev/ui', name: 'dev-ui', prepare: enableDevModeWithSamples },
+  { route: '/projects', name: 'projects-grid', scroll: true },
+  { route: '/projects', name: 'project-dialog', prepare: openFilledDialog },
+  { route: '/projects', name: 'project-menu', prepare: click('Aktionen für BWL-Begriffe') },
+  { route: '/projects', name: 'project-delete', prepare: openDeleteConfirm },
+  {
+    route: '/projects',
+    name: 'projects-search',
+    prepare: async (page) => {
+      await page.getByRole('searchbox', { name: 'Projekte suchen' }).fill('isch');
+    },
+  },
 ];
 
 const VARIANTS: { name: string; options: BrowserContextOptions }[] = [

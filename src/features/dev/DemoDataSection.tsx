@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
-import { Button, Surface } from '@/components/ui';
+import { Plus, Sparkles } from 'lucide-react';
+import { Button, Surface, toast } from '@/components/ui';
 import { useLiveData } from '@/data/live';
-import { projectsRepo } from '@/data/repositories';
+import { cardsRepo, projectsRepo, sessionsRepo } from '@/data/repositories';
 import { PROJECT_COLORS } from '@/data/types';
 import { de } from '@/i18n/de';
 
@@ -13,6 +13,40 @@ export function DemoDataSection() {
   const projectCount = useLiveData(() => projectsRepo.count());
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
+
+  async function createSampleProjects() {
+    setSaving(true);
+    setFailed(false);
+    try {
+      for (const sample of t.sampleProjects) {
+        const project = await projectsRepo.create({
+          name: sample.name,
+          description: sample.description,
+          color: sample.color,
+          icon: sample.icon,
+        });
+        await cardsRepo.bulkCreate(
+          project.id,
+          sample.cards.map(([front, back]) => ({ front, back })),
+        );
+        if (sample.studied) {
+          await sessionsRepo.create({
+            projectId: project.id,
+            roundNumber: 1,
+            mode: 'all',
+            direction: 'front_to_back',
+            gradingMode: 'self',
+            totalCards: sample.cards.length,
+          });
+        }
+      }
+      toast.success(t.sampleProjectsCreated(t.sampleProjects.length));
+    } catch {
+      setFailed(true);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function createTestProject() {
     setSaving(true);
@@ -47,9 +81,19 @@ export function DemoDataSection() {
             {failed ? t.saveFailed : t.testProjectHint}
           </span>
         </div>
-        <Button icon={Plus} loading={saving} onClick={() => void createTestProject()}>
-          {t.createTestProject}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            icon={Sparkles}
+            variant="secondary"
+            disabled={saving}
+            onClick={() => void createSampleProjects()}
+          >
+            {t.createSampleProjects}
+          </Button>
+          <Button icon={Plus} loading={saving} onClick={() => void createTestProject()}>
+            {t.createTestProject}
+          </Button>
+        </div>
       </Surface>
     </section>
   );
