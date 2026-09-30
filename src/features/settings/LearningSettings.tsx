@@ -76,10 +76,12 @@ export function LearningSettings() {
             onChange={(value) => void set('defaultGradingMode', value)}
           />
         </Row>
-        {gradingMode === 'ai' && aiUnavailable && (
-          <p className="text-sm text-warning" data-testid="grading-no-ai">
+        {gradingMode === 'ai' && aiUnavailable ? (
+          <p className="text-sm text-fg-muted" data-testid="grading-no-ai">
             {t.gradingNoAi}
           </p>
+        ) : (
+          <p className="text-sm text-fg-muted">{t.gradingModeHints[gradingMode]}</p>
         )}
       </div>
       <div className="h-px bg-line" />

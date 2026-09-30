@@ -2,7 +2,7 @@ import { Dexie } from 'dexie';
 import { db } from '../db';
 import { RecordNotFoundError, parseOrThrow } from '../errors';
 import { answerCreateSchema, type AnswerCreateInput } from '../schemas';
-import type { Answer } from '../types';
+import type { Answer, Verdict } from '../types';
 import { compact, newId, nowIso } from '../util';
 
 export const answersRepo = {
@@ -18,6 +18,25 @@ export const answersRepo = {
       if (!card) throw new RecordNotFoundError('card', data.cardId);
       const answer: Answer = compact({ id: newId(), ...data, answeredAt: nowIso() });
       await db.answers.add(answer);
+      return answer;
+    });
+  },
+
+  async get(id: string): Promise<Answer | undefined> {
+    return db.answers.get(id);
+  },
+
+  /**
+   * The user corrected the verdict: method becomes 'override', confidence 1. The AI feedback
+   * no longer fits and is removed.
+   */
+  async overrideVerdict(id: string, verdict: Verdict): Promise<Answer> {
+    return db.transaction('rw', db.answers, async () => {
+      const existing = await db.answers.get(id);
+      if (!existing) throw new RecordNotFoundError('answer', id);
+      const answer: Answer = { ...existing, verdict, method: 'override', confidence: 1 };
+      delete answer.feedback;
+      await db.answers.put(answer);
       return answer;
     });
   },

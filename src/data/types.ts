@@ -112,6 +112,8 @@ export interface GradingCacheEntry {
   confidence?: number;
   feedback?: string;
   model: string;
+  /** 'override' after the user corrected the verdict; absent = AI verdict (not indexed). */
+  method?: Extract<AnswerMethod, 'ai' | 'override'>;
   createdAt: string;
 }
 

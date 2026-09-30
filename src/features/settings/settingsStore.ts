@@ -36,7 +36,8 @@ export const SETTINGS_DEFAULTS: SettingsValues = {
   theme: 'system',
   reduceMotion: false,
   sidebarCollapsed: false,
-  aiProvider: 'anthropic',
+  // Free by default: local grading plus self assessment; the paid AI is opt-in.
+  aiProvider: 'off',
   aiModel: DEFAULT_AI_MODEL,
   defaultStrictness: 'meaning',
   defaultDirection: 'front_to_back',
