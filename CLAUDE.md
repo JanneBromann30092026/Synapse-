@@ -78,7 +78,7 @@ Touch-first (iPad):
 - [x] 5 Karteikartenverwaltung
 - [x] 6 Einstellungen & KI-Anbindung
 - [x] 7 Bewertungs-Engine
-- [ ] 8 Lernmodus – Session-Logik
+- [x] 8 Lernmodus – Session-Logik
 - [ ] 9 Lernmodus – UI & Animationen
 - [ ] 10 Lernmodus – Rundenende & Wiederholung
 - [ ] 11 Lernhistorie & Statistik
@@ -139,3 +139,7 @@ Touch-first (iPad):
 - `src/services/grading/gradingService.ts` (`createGradingService(deps)`; Standard-Instanz `gradingService` liest Einstellungen aus dem Settings-Store): A lokal → B Cache (`[cardId, direction, SHA-256(canonicalForm), strictness]`) → C KI (an, Key, online; Ergebnis wird gecacht) → D `needs_self_assessment` mit `reason` `ai_off | no_key | offline | ai_error` (+ `errorCode`). Rückgabe immer mit method, confidence, durationMs, cached.
 - `overrideVerdict({answerId, newVerdict})`: Antwort bekommt method `override`, confidence 1, KI-Feedback wird entfernt; vorhandene Cache-Einträge dieser Antwort (alle Strengen) werden überschrieben (`method: 'override'` im Cache-Eintrag – nicht indiziert, daher keine neue DB-Version). Sitzungszähler passt erst Schritt 8 an.
 - Entwicklertool: /dev/ui → „Bewertung testen“ (`src/features/dev/GradingPlayground.tsx`). E2E `e2e/grading.spec.ts` prüft lokale Bewertung ohne jeden API-Aufruf sowie KI + Cache mit gemockter API.
+- Schritt 8 (Session-Logik): reiner Reducer in `src/core/session/` (`sessionReducer`, `createRound`, `buildNextRound`, `roundStats`, `currentCard`, `shuffle`/`seededRandom`, sessionStorage-Format `serializeSession`/`parseStoredSession`). Zustandsdiagramm: setup –START_ROUND→ presenting –SUBMIT→ evaluating (Modus „self“: direkt selfAssessing) –EVALUATION_SUCCEEDED→ revealed (bei needs_self_assessment → selfAssessing –SELF_ASSESS→ revealed) | –EVALUATION_FAILED→ error (–RETRY_EVALUATION→ evaluating oder –SELF_ASSESS→ revealed). revealed –OVERRIDE→ revealed (Stapelwechsel), –NEXT→ transitioning –NEXT→ presenting (nächste Karte) bzw. roundComplete. Jede aktive Phase –ABORT→ aborted. START_ROUND nur aus setup/roundComplete/aborted.
+- Mischen und Richtungswahl (bei „mixed“ pro Karte) passieren beim Erzeugen der START_ROUND-Aktion, der Reducer bleibt deterministisch. `evaluationId` zählt über Runden weiter, verspätete Ergebnisse passen so nie. Jede Runde = eigene studySession-Zeile (roundNumber + 1).
+- `src/features/study/studyController.ts`: framework-freier Controller (ohne React testbar) mit den Nebenwirkungen – Session anlegen/abschließen/abbrechen, Antworten loggen, Override (wartet ggf. auf das noch laufende Speichern), AbortController für die Bewertung, Snapshot in sessionStorage (`synapse.study.<projectId>`; Tippen verzögert, sonst sofort, zusätzlich bei visibilitychange/pagehide). Speicherfehler → Toast + console.error, Runde läuft weiter (sessionId dann null). `useStudySession(scope)` bindet ihn per useSyncExternalStore; Komponente per `key={scope}` neu mounten. `transitioning` endet per zweitem NEXT – Schritt 9 löst das am Ende der Kartenanimation aus.
+- Entwicklertool: /dev/ui → „Lernrunde testen“ (`SessionPlayground`), E2E `e2e/session.spec.ts` (lokal ohne API-Aufruf, Override, Neuladen, Abbruch, Selbstbewertung bis Rundenende, falsche wiederholen).

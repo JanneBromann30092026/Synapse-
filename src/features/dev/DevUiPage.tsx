@@ -39,6 +39,7 @@ import { useSettings } from '@/features/settings/settingsStore';
 import { de } from '@/i18n/de';
 import { DemoDataSection } from './DemoDataSection';
 import { GradingPlayground } from './GradingPlayground';
+import { SessionPlayground } from './SessionPlayground';
 
 const t = de.dev;
 const d = de.dev.demo;
@@ -357,6 +358,7 @@ export default function DevUiPage() {
       <div className="flex flex-col gap-8">
         <DemoDataSection />
         <GradingPlayground />
+        <SessionPlayground />
         <Section id="buttons" title={t.sections.buttons}>
           <ButtonsDemo />
         </Section>
