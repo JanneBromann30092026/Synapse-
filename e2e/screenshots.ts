@@ -137,12 +137,24 @@ async function gradingPlayground(page: Page) {
   await section.evaluate((element) => element.scrollIntoView({ block: 'start' }));
 }
 
+/** Study round state machine in the developer area: a revealed wrong answer. */
+async function sessionPlayground(page: Page) {
+  const section = page.getByTestId('dev-section-session');
+  await section.getByLabel('Projekt').selectOption({ label: 'Japanisch Grundwortschatz' });
+  await section.getByRole('button', { name: 'Runde starten' }).click();
+  await section.getByLabel('Deine Antwort').fill('keine Ahnung');
+  await section.getByLabel('Deine Antwort').press('Enter');
+  await section.getByTestId('session-result').waitFor();
+  await section.evaluate((element) => element.scrollIntoView({ block: 'start' }));
+}
+
 const SHOTS: Shot[] = [
   { route: '/settings', name: 'settings', scroll: true },
   { route: '/settings', name: 'settings-ai', prepare: settingsWithKey },
   { route: '/projects', name: 'projects-empty' },
   { route: '/dev/ui', name: 'dev-ui', prepare: enableDevModeWithDemoData },
   { route: '/dev/ui', name: 'dev-grading', prepare: gradingPlayground },
+  { route: '/dev/ui', name: 'dev-session', prepare: sessionPlayground },
   { route: '/projects', name: 'projects-grid' },
   {
     route: '/projects',
