@@ -59,6 +59,7 @@ test('API key: save, test connection, never shown again, remove', async ({ page 
   const requests = await mockAnthropic(page, 200);
   await page.goto('./#/settings');
   const ai = page.getByTestId('settings-ai');
+  await ai.getByRole('radio', { name: 'Anthropic' }).click();
   const keyInput = ai.getByLabel('API-Key', { exact: true });
 
   await expect(ai.getByTestId('api-key-status')).toHaveText('Kein Key hinterlegt');
@@ -110,6 +111,7 @@ test('a rejected key shows an authentication message', async ({ page }) => {
   await mockAnthropic(page, 401);
   await page.goto('./#/settings');
   const ai = page.getByTestId('settings-ai');
+  await ai.getByRole('radio', { name: 'Anthropic' }).click();
   await ai.getByLabel('API-Key', { exact: true }).fill(KEY);
   await ai.getByRole('button', { name: 'Key speichern' }).click();
   await expect(ai.getByTestId('api-key-status')).toHaveText('Key hinterlegt');
@@ -117,9 +119,15 @@ test('a rejected key shows an authentication message', async ({ page }) => {
   await expect(ai.getByTestId('connection-result')).toContainText('Der API-Key wurde abgelehnt');
 });
 
-test('AI can be switched off and the model is validated', async ({ page }) => {
+test('AI is off by default (free); the model is validated when switched on', async ({ page }) => {
   await page.goto('./#/settings');
   const ai = page.getByTestId('settings-ai');
+  await expect(ai.getByRole('radio', { name: 'Aus' })).toHaveAttribute('aria-checked', 'true');
+  await expect(ai.getByText('Kostenlos: Synapse prüft deine Antworten lokal')).toBeVisible();
+  await expect(ai.getByLabel('API-Key', { exact: true })).toHaveCount(0);
+
+  await ai.getByRole('radio', { name: 'Anthropic' }).click();
+  await expect(ai.getByText('Optional und kostenpflichtig')).toBeVisible();
   const model = ai.getByLabel('Modell');
   await expect(model).toHaveValue('claude-haiku-4-5-20251001');
 
@@ -135,7 +143,7 @@ test('AI can be switched off and the model is validated', async ({ page }) => {
   await expect(ai.getByLabel('Modell')).toHaveValue('claude-haiku-4-5-20251001');
 
   await ai.getByRole('radio', { name: 'Aus' }).click();
-  await expect(ai.getByText('Ohne KI bewertest du deine Antworten')).toBeVisible();
+  await expect(ai.getByText('Kostenlos: Synapse prüft deine Antworten lokal')).toBeVisible();
   await expect(ai.getByRole('button', { name: 'Verbindung testen' })).toHaveCount(0);
   await page.reload();
   await expect(ai.getByRole('radio', { name: 'Aus' })).toHaveAttribute('aria-checked', 'true');

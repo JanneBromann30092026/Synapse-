@@ -299,6 +299,7 @@ export function AiSettings() {
         <p className="text-sm text-fg-muted">{t.offHint}</p>
       ) : (
         <>
+          <p className="text-sm text-fg-muted">{t.costHint}</p>
           <div className="h-px bg-line" />
           <ApiKeyField />
           <div className="h-px bg-line" />

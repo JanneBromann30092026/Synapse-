@@ -77,7 +77,7 @@ Touch-first (iPad):
 - [x] 4 Projektverwaltung
 - [x] 5 Karteikartenverwaltung
 - [x] 6 Einstellungen & KI-Anbindung
-- [ ] 7 Bewertungs-Engine
+- [x] 7 Bewertungs-Engine
 - [ ] 8 Lernmodus – Session-Logik
 - [ ] 9 Lernmodus – UI & Animationen
 - [ ] 10 Lernmodus – Rundenende & Wiederholung
@@ -133,3 +133,9 @@ Touch-first (iPad):
 - API-Key: Formatprüfung `sk-ant-…` (Leerraum wird entfernt), Speicherung nur über `secretsRepo`; die UI liest ausschließlich `has()`. Der Key steht nie in localStorage, im DOM oder in Fehlermeldungen (E2E prüft das).
 - Settings-Store: alle Schlüssel mit zod-Schema und Standardwert in `SETTINGS_DEFAULTS` (aiProvider, aiModel, defaultStrictness, defaultDirection, defaultGradingMode, typoTolerance 0,5–1 Standard 0,85 …). `set()` validiert, speichert sofort und setzt `savedAt` für den dezenten „Gespeichert“-Hinweis. Das Modellfeld wird erst nach `loaded` gerendert, sonst überschreibt der geladene Wert die Eingabe.
 - E2E `e2e/settings.spec.ts` mockt die Anthropic-API per `page.route` (inkl. OPTIONS-Preflight mit CORS-Headern) – keine echten API-Aufrufe in Tests oder Screenshots.
+- Kostenlos als Standard (Wunsch des Nutzers, kein API-Guthaben): `aiProvider` ist standardmäßig `off`. Die App bewertet dann lokal; was lokal unklar bleibt, entscheidet der Nutzer selbst. Anthropic ist optional (Hinweis „kostenpflichtig“ in den Einstellungen). Die Bewertungsart heißt in der UI „Automatisch“ (Wert `ai`: lokal → Cache → KI, falls eingerichtet) bzw. „Selbstbewertung“.
+- Schritt 7 (Bewertung): reine Logik in `src/core/grading/`: `normalize` (NFKC, Anführungszeichen, Kleinschreibung, Satzzeichen – Bindestrich, Punkt und Apostroph verbinden, andere trennen –, optional führender Artikel), `comparisonVariants` (ohne Artikel, ä→ae/ß→ss, Katakana→Hiragana; exakt = Varianten überschneiden sich), `canonicalForm` (alles gefaltet), `splitAlternatives` (`;` und ` / `, „km/h“ bleibt ganz), `similarity` (Levenshtein auf Codepoints, gemeinsamer Präfix/Suffix übersprungen), `localGrade`.
+- `localGrade`: correct/exact bei Treffer einer Alternative (auch mehrere, z. B. „Haus, Heim“); correct/fuzzy bei Ähnlichkeit ≥ Tippfehlertoleranz, höchstens 4 Wörtern und gleichen Ziffern (1990 ≠ 1991); incorrect/exact bei leerer Eingabe, nur Satzzeichen oder „weiß nicht“/„keine Ahnung“/„わからない“; sonst undecided.
+- `src/services/grading/gradingService.ts` (`createGradingService(deps)`; Standard-Instanz `gradingService` liest Einstellungen aus dem Settings-Store): A lokal → B Cache (`[cardId, direction, SHA-256(canonicalForm), strictness]`) → C KI (an, Key, online; Ergebnis wird gecacht) → D `needs_self_assessment` mit `reason` `ai_off | no_key | offline | ai_error` (+ `errorCode`). Rückgabe immer mit method, confidence, durationMs, cached.
+- `overrideVerdict({answerId, newVerdict})`: Antwort bekommt method `override`, confidence 1, KI-Feedback wird entfernt; vorhandene Cache-Einträge dieser Antwort (alle Strengen) werden überschrieben (`method: 'override'` im Cache-Eintrag – nicht indiziert, daher keine neue DB-Version). Sitzungszähler passt erst Schritt 8 an.
+- Entwicklertool: /dev/ui → „Bewertung testen“ (`src/features/dev/GradingPlayground.tsx`). E2E `e2e/grading.spec.ts` prüft lokale Bewertung ohne jeden API-Aufruf sowie KI + Cache mit gemockter API.

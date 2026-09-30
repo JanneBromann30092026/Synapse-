@@ -4,6 +4,7 @@ import {
   CARD_DIRECTIONS,
   CROSS_PROJECT_ID,
   GRADING_MODES,
+  GRADING_STRICTNESS,
   PROJECT_COLORS,
   STUDY_DIRECTIONS,
   STUDY_MODES,
@@ -21,6 +22,7 @@ export const LIMITS = {
   userInput: 5000,
   feedback: 2000,
   settingKey: 100,
+  modelName: 100,
   searchQuery: 200,
 } as const;
 
@@ -119,6 +121,21 @@ export const answerCreateSchema = z.object({
   responseTimeMs: count.optional(),
 });
 export type AnswerCreateInput = z.input<typeof answerCreateSchema>;
+
+// --- Grading cache --------------------------------------------------------
+
+export const gradingCacheEntrySchema = z.object({
+  cardId: id,
+  direction: z.enum(CARD_DIRECTIONS),
+  inputHash: z.string().regex(/^[0-9a-f]{64}$/),
+  strictness: z.enum(GRADING_STRICTNESS),
+  verdict: z.enum(VERDICTS),
+  confidence: z.number().min(0).max(1).optional(),
+  feedback: optionalText(LIMITS.feedback),
+  model: requiredText(LIMITS.modelName),
+  method: z.enum(['ai', 'override']).optional(),
+});
+export type GradingCacheEntryInput = z.input<typeof gradingCacheEntrySchema>;
 
 // --- Settings -------------------------------------------------------------
 

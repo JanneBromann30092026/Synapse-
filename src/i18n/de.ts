@@ -201,7 +201,10 @@ export const de = {
       title: 'KI-Bewertung',
       provider: 'Anbieter',
       providerOptions: { anthropic: 'Anthropic', off: 'Aus' },
-      offHint: 'Ohne KI bewertest du deine Antworten im Lernmodus selbst (Richtig/Falsch).',
+      offHint:
+        'Kostenlos: Synapse prüft deine Antworten lokal auf dem Gerät – exakte Treffer, Tippfehler, Umlaute und Artikel. Nur wenn die App unsicher ist (z. B. bei Umschreibungen), entscheidest du selbst mit Richtig/Falsch.',
+      costHint:
+        'Optional und kostenpflichtig: Die KI bewertet auch Umschreibungen und Synonyme. Dafür brauchst du einen API-Key mit Guthaben bei Anthropic.',
       key: 'API-Key',
       keyPlaceholder: 'sk-ant-…',
       keyStored: 'Key hinterlegt',
@@ -263,9 +266,13 @@ export const de = {
         mixed: 'Gemischt',
       },
       gradingMode: 'Bewertung',
-      gradingModeOptions: { ai: 'KI', self: 'Selbstbewertung' },
+      gradingModeOptions: { ai: 'Automatisch', self: 'Selbstbewertung' },
+      gradingModeHints: {
+        ai: 'Erst prüft die App lokal, bei unklaren Antworten fragt sie die KI.',
+        self: 'Du bewertest jede Antwort selbst mit Richtig/Falsch.',
+      },
       gradingNoAi:
-        'Solange keine KI eingerichtet ist, wird automatisch die Selbstbewertung verwendet.',
+        'Ohne KI prüft die App lokal (exakt und mit Tippfehlertoleranz); nur unklare Antworten bewertest du selbst.',
       typoTolerance: 'Tippfehlertoleranz',
       typoHint:
         'Wie ähnlich eine Antwort sein muss, damit ein Tippfehler noch als richtig zählt. 1,00 = nur exakte Treffer.',
@@ -320,6 +327,46 @@ export const de = {
       projects === 0
         ? 'Demo-Daten sind schon vorhanden'
         : `${projects} Projekte mit ${cards} Karten angelegt`,
+    grading: {
+      title: 'Bewertung testen',
+      hint: 'Stufen: lokal → Cache → KI (falls eingerichtet) → Selbstbewertung.',
+      noCards: 'Noch keine Karten – lade zuerst die Demo-Daten.',
+      project: 'Projekt',
+      card: 'Karte',
+      direction: 'Richtung',
+      strictness: 'Strenge',
+      answer: 'Deine Antwort',
+      answerPlaceholder: 'Antwort eintippen …',
+      submit: 'Bewerten',
+      expected: 'Erwartet',
+      verdicts: {
+        correct: 'Richtig',
+        incorrect: 'Falsch',
+        needs_self_assessment: 'Selbstbewertung nötig',
+      },
+      methods: {
+        exact: 'Exakt',
+        fuzzy: 'Tippfehler toleriert',
+        ai: 'KI',
+        override: 'Korrigiert',
+        self: 'Selbstbewertung',
+      },
+      fromCache: 'aus dem Cache',
+      method: 'Methode',
+      confidence: 'Sicherheit',
+      duration: 'Dauer',
+      reason: 'Grund',
+      feedback: 'Feedback',
+      normalized: 'Normalisiert',
+      closest: 'Ähnlichste Antwort',
+      reasons: {
+        ai_off: 'KI ist ausgeschaltet',
+        no_key: 'Kein API-Key hinterlegt',
+        offline: 'Keine Internetverbindung',
+        ai_error: 'KI-Fehler',
+      },
+      failed: 'Bewertung fehlgeschlagen.',
+    },
     sections: {
       buttons: 'Buttons',
       inputs: 'Eingaben',

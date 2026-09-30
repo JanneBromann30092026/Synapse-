@@ -114,6 +114,7 @@ async function settingsWithKey(page: Page) {
     });
   });
   const ai = page.getByTestId('settings-ai');
+  await ai.getByRole('radio', { name: 'Anthropic' }).click();
   await ai.getByLabel('API-Key', { exact: true }).fill('sk-ant-api03-screenshot-0123456789abcdef');
   await ai.getByRole('button', { name: 'Key speichern' }).click();
   await ai.getByTestId('api-key-status').filter({ hasText: 'Key hinterlegt' }).waitFor();
@@ -122,11 +123,26 @@ async function settingsWithKey(page: Page) {
   await page.waitForTimeout(3000); // let the toast disappear
 }
 
+/** Grading playground in the developer area: a typo that is still accepted (AI off). */
+async function gradingPlayground(page: Page) {
+  await page.goto(`${PREVIEW_URL}#/settings`);
+  await page.getByTestId('settings-ai').getByRole('radio', { name: 'Aus' }).click();
+  await page.goto(`${PREVIEW_URL}#/dev/ui`);
+  const section = page.getByTestId('dev-section-grading');
+  await section.getByLabel('Projekt').selectOption({ label: 'Japanisch Grundwortschatz' });
+  await section.getByLabel('Karte').selectOption({ label: '家 → Haus; Heim; Zuhause' });
+  await section.getByLabel('Deine Antwort').fill('Zuhaus');
+  await section.getByRole('button', { name: 'Bewerten' }).click();
+  await section.getByTestId('grading-result').waitFor();
+  await section.evaluate((element) => element.scrollIntoView({ block: 'start' }));
+}
+
 const SHOTS: Shot[] = [
   { route: '/settings', name: 'settings', scroll: true },
   { route: '/settings', name: 'settings-ai', prepare: settingsWithKey },
   { route: '/projects', name: 'projects-empty' },
   { route: '/dev/ui', name: 'dev-ui', prepare: enableDevModeWithDemoData },
+  { route: '/dev/ui', name: 'dev-grading', prepare: gradingPlayground },
   { route: '/projects', name: 'projects-grid' },
   {
     route: '/projects',
