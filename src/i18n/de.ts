@@ -103,17 +103,10 @@ export const de = {
       emptyText: 'Lege deine erste Karteikarte an – Vorderseite, Rückseite, fertig.',
       emptyAction: 'Erste Karte anlegen',
       import: 'Importieren',
-      importTitle: (n: number) => (n === 1 ? '1 Karte importieren?' : `${n} Karten importieren?`),
-      importMessage: (file: string, invalid: number) =>
-        `Aus „${file}“. Karten mit gleicher Vorderseite werden übersprungen.` +
-        (invalid > 0
-          ? ` ${invalid === 1 ? '1 Zeile ohne' : `${invalid} Zeilen ohne`} Vorder- oder Rückseite wird ignoriert.`
-          : ''),
-      importConfirm: 'Importieren',
-      importEmpty: 'In der Datei wurden keine Karten gefunden (erwartet: Vorderseite, Rückseite).',
       search: 'Karten durchsuchen',
       searchPlaceholder: 'Vorderseite, Rückseite, Notizen, Tags …',
       noResults: 'Keine Karten gefunden. Passe Suche oder Tag-Filter an.',
+      showMore: (shown: number, total: number) => `Weitere anzeigen (${shown} von ${total})`,
       allTags: 'Alle',
       tagFilter: 'Nach Tag filtern',
       viewList: 'Listenansicht',
@@ -143,10 +136,6 @@ export const de = {
         moved: (n: number, project: string) =>
           `${n === 1 ? '1 Karte' : `${n} Karten`} nach „${project}“ verschoben`,
         saved: 'Karte gespeichert',
-        imported: (n: number, skipped: number) =>
-          `${n === 1 ? '1 Karte' : `${n} Karten`} importiert` +
-          (skipped > 0 ? ` · ${skipped} doppelt, übersprungen` : ''),
-        importFailed: 'Die Datei konnte nicht gelesen werden.',
         failed: 'Das hat nicht geklappt. Bitte erneut versuchen.',
       },
     },
@@ -177,6 +166,7 @@ export const de = {
       duplicate: (front: string) =>
         `Eine Karte mit der Vorderseite „${front}“ gibt es in diesem Projekt schon.`,
       saveAnyway: 'Trotzdem speichern',
+      pasteMany: 'Mehrere einfügen',
       errors: {
         frontRequired: 'Bitte eine Vorderseite eingeben.',
         backRequired: 'Bitte eine Rückseite eingeben.',
@@ -583,6 +573,156 @@ export const de = {
       demoLoaded: (projects: number, cards: number) =>
         `${projects} Projekte mit ${cards} Karten geladen`,
       demoFailed: 'Die Demo-Projekte konnten nicht geladen werden.',
+    },
+  },
+  transfer: {
+    import: 'Importieren',
+    export: 'Exportieren',
+    drop: {
+      title: 'Datei hier ablegen',
+      text: 'CSV, TSV, Anki-Textexport oder Synapse-JSON',
+    },
+    analyzing: 'Datei wird gelesen …',
+    errors: {
+      empty: 'In der Datei wurde nichts gefunden.',
+      notJson: 'Die Datei ist kein gültiges JSON.',
+      notSynapse: 'Diese JSON-Datei stammt nicht aus Synapse.',
+      newerVersion:
+        'Die Datei stammt aus einer neueren Synapse-Version. Bitte die App aktualisieren.',
+      invalid: (path?: string) =>
+        path ? `Die Datei ist beschädigt (Fehler bei „${path}“).` : 'Die Datei ist beschädigt.',
+      read: 'Die Datei konnte nicht gelesen werden.',
+      failed: 'Der Import hat nicht geklappt. Es wurde nichts verändert.',
+    },
+    csv: {
+      title: 'Karten importieren',
+      pasteTitle: 'Mehrere Karten einfügen',
+      pasteLabel: 'Eine Karte pro Zeile',
+      pastePlaceholder: 'Vorderseite;Rückseite\nHaus;house\nBaum;tree',
+      pasteHint:
+        'Trennzeichen: Tabulator, Semikolon oder Komma. Optional dahinter Notizen und Tags.',
+      file: (name: string, encoding: string) => `${name} · ${encoding}`,
+      target: 'Zielprojekt',
+      newProject: 'Neues Projekt',
+      newProjectName: 'Name des neuen Projekts',
+      delimiter: 'Trennzeichen',
+      delimiters: { ',': 'Komma', ';': 'Semikolon', '\t': 'Tabulator' },
+      header: 'Erste Zeile ist Kopfzeile',
+      mapping: 'Spalten zuordnen',
+      fields: { front: 'Vorderseite', back: 'Rückseite', notes: 'Notizen', tags: 'Tags' },
+      column: (n: number, sample: string) => (sample ? `Spalte ${n}: ${sample}` : `Spalte ${n}`),
+      none: '– nicht importieren –',
+      preview: 'Vorschau',
+      previewEmpty: 'Keine Zeilen mit Vorder- und Rückseite.',
+      skipDuplicates: 'Doppelte Karten überspringen',
+      skipDuplicatesHint: 'Gleiche Vorderseite wie eine vorhandene Karte im Zielprojekt',
+      anki: 'Anki-Textexport erkannt',
+      summary: (cards: number, invalid: number) =>
+        `${cards === 1 ? '1 Karte' : `${cards} Karten`} erkannt` +
+        (invalid > 0
+          ? ` · ${invalid === 1 ? '1 fehlerhafte Zeile' : `${invalid} fehlerhafte Zeilen`}`
+          : ''),
+      confirm: (n: number) => (n === 1 ? '1 Karte importieren' : `${n} Karten importieren`),
+    },
+    json: {
+      title: 'Synapse-Datei importieren',
+      backupHint:
+        'Das ist ein Backup. Zum vollständigen Wiederherstellen: Einstellungen → Daten & Backups.',
+      summary: (projects: number, cards: number) =>
+        `${projects === 1 ? '1 Projekt' : `${projects} Projekte`} · ${cards === 1 ? '1 Karte' : `${cards} Karten`}`,
+      exportedAt: (date: string) => `Erstellt am ${date}`,
+      cardCount: (n: number) => (n === 1 ? '1 Karte' : `${n} Karten`),
+      conflict: (name: string) => `„${name}“ gibt es schon`,
+      strategies: { merge: 'Zusammenführen', new: 'Als neues Projekt', skip: 'Überspringen' },
+      strategyHint: 'Zusammenführen übernimmt nur Karten mit neuer Vorderseite.',
+      history: 'Lernverlauf importieren',
+      historyHint: (answers: number) =>
+        answers === 1
+          ? '1 Antwort aus früheren Runden'
+          : `${answers} Antworten aus früheren Runden`,
+      confirm: 'Importieren',
+    },
+    result: {
+      title: 'Import abgeschlossen',
+      imported: (n: number) => (n === 1 ? '1 Karte importiert' : `${n} Karten importiert`),
+      duplicates: (n: number) =>
+        n === 1 ? '1 doppelte Karte übersprungen' : `${n} doppelte Karten übersprungen`,
+      invalid: (n: number) =>
+        n === 1 ? '1 fehlerhafte Zeile übersprungen:' : `${n} fehlerhafte Zeilen übersprungen:`,
+      line: (line: number) => `Zeile ${line}`,
+      reasons: {
+        missingFront: 'Vorderseite fehlt',
+        missingBack: 'Rückseite fehlt',
+        tooLong: 'Text zu lang',
+      },
+      more: (n: number) => `… und ${n} weitere`,
+      projects: {
+        created: (name: string, cards: number) =>
+          `„${name}“ angelegt (${cards === 1 ? '1 Karte' : `${cards} Karten`})`,
+        merged: (name: string, cards: number) =>
+          `In „${name}“ zusammengeführt (${cards === 1 ? '1 neue Karte' : `${cards} neue Karten`})`,
+        skipped: (name: string) => `„${name}“ übersprungen`,
+      },
+      toast: (n: number, skipped: number) =>
+        `${n === 1 ? '1 Karte' : `${n} Karten`} importiert` +
+        (skipped > 0 ? ` · ${skipped} übersprungen` : ''),
+      open: 'Zum Projekt',
+      done: 'Fertig',
+    },
+    exportDialog: {
+      projectTitle: (name: string) => `„${name}“ exportieren`,
+      allTitle: 'Alle Projekte exportieren',
+      backupTitle: 'Backup exportieren',
+      format: 'Format',
+      formats: { json: 'Synapse (JSON)', csv: 'CSV' },
+      jsonHint: 'Mit allen Feldern, zum Wiederimportieren in Synapse.',
+      csvHint: 'Vorderseite, Rückseite, Notizen, Tags – für Excel, Numbers oder Anki.',
+      history: 'Lernverlauf einschließen',
+      backupText:
+        'Enthält alle Projekte, Karten, den Lernverlauf und die Einstellungen – nie den API-Key. Sichere die Datei in „Dateien“ oder iCloud Drive.',
+      preparing: 'Datei wird erstellt …',
+      file: (name: string, size: string) => `${name} · ${size}`,
+      share: 'Teilen / Sichern',
+      shareHint: 'Im Teilen-Menü „In Dateien sichern“ wählen.',
+      download: 'Herunterladen',
+      done: 'Datei gesichert',
+      downloaded: 'Download gestartet',
+      failed: 'Die Datei konnte nicht erstellt werden.',
+    },
+    backups: {
+      title: 'Daten & Backups',
+      lastExport: 'Letztes Backup in Dateien',
+      never: 'noch nie',
+      exportBackup: 'Backup exportieren',
+      exportAll: 'Alle Projekte exportieren',
+      importFile: 'Datei importieren',
+      snapshots: 'Automatische Sicherungen',
+      snapshotsHint:
+        'Einmal täglich beim Start, die letzten 7 bleiben. Schützt vor Bedienfehlern – nicht vor dem Löschen der App-Daten durch Safari. Dafür das Backup exportieren.',
+      snapshotNow: 'Jetzt sichern',
+      snapshotCreated: 'Sicherung erstellt',
+      noSnapshots: 'Noch keine Sicherung.',
+      reasons: { auto: 'Automatisch', manual: 'Manuell', beforeRestore: 'Vor Wiederherstellung' },
+      snapshotInfo: (projects: number, cards: number, size: string) =>
+        `${projects === 1 ? '1 Projekt' : `${projects} Projekte`} · ${cards === 1 ? '1 Karte' : `${cards} Karten`} · ${size}`,
+      restore: 'Wiederherstellen',
+      restoreFromFile: 'Aus Datei wiederherstellen',
+      restoreTitle: 'Alle Daten ersetzen?',
+      restoreMessage: (what: string) =>
+        `Alle Projekte, Karten, der Lernverlauf und die Einstellungen werden durch ${what} ersetzt. Vorher wird automatisch eine Sicherung des aktuellen Stands angelegt. Danach lädt die App neu.`,
+      restoreSnapshot: (date: string) => `die Sicherung vom ${date}`,
+      restoreFile: (name: string) => `den Inhalt von „${name}“`,
+      restoreConfirm: 'Ersetzen & neu laden',
+      restoreFailed: 'Wiederherstellen fehlgeschlagen. Es wurde nichts verändert.',
+      notABackup: 'Diese Datei enthält keine Synapse-Daten.',
+    },
+    reminder: {
+      text: (days: number | null) =>
+        days === null
+          ? 'Du hast noch kein Backup exportiert. Deine Daten liegen nur auf diesem iPad.'
+          : `Dein letztes Backup ist ${days} Tage alt. Deine Daten liegen nur auf diesem iPad.`,
+      action: 'Jetzt sichern',
+      later: 'Später',
     },
   },
   settings: {

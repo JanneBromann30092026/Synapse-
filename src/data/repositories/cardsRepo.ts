@@ -95,22 +95,28 @@ export const cardsRepo = {
   },
 
   /**
-   * Imports cards in one transaction, skipping cards whose normalized front side already
-   * exists in the project (or earlier in the same import).
+   * Imports cards in one transaction. With skipDuplicates (default) cards whose normalized
+   * front side already exists in the project (or earlier in the same import) are skipped.
    */
   async importMany(
     projectId: string,
     inputs: CardCreateInput[],
+    { skipDuplicates = true }: { skipDuplicates?: boolean } = {},
   ): Promise<{ created: Card[]; skippedDuplicates: number }> {
     const start = Date.now();
     return db.transaction('rw', [db.projects, db.cards], async () => {
       await requireProject(projectId);
-      const existing = await db.cards.where('projectId').equals(projectId).toArray();
-      const seen = new Set(existing.map((card) => normalizeCardText(card.front)));
+      const seen = new Set<string>();
+      if (skipDuplicates) {
+        await db.cards
+          .where('projectId')
+          .equals(projectId)
+          .each((card) => seen.add(normalizeCardText(card.front)));
+      }
       const created: Card[] = [];
       inputs.forEach((input, index) => {
         const key = normalizeCardText(input.front);
-        if (seen.has(key)) return;
+        if (skipDuplicates && seen.has(key)) return;
         seen.add(key);
         created.push(
           buildCard(projectId, input, new Date(start + created.length).toISOString(), index),

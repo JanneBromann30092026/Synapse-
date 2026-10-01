@@ -92,6 +92,8 @@ describe('brainRepo.getCardDetail', () => {
       totalCards: 1,
     });
     for (const verdict of ['incorrect', 'correct'] as const) {
+      // Distinct answeredAt timestamps, otherwise the order is undefined.
+      await new Promise((resolve) => setTimeout(resolve, 2));
       await answersRepo.create({
         sessionId: session.id,
         cardId: hund.id,

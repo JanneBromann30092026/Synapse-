@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui';
 import { OnboardingGate } from '@/features/onboarding/OnboardingGate';
 import { useSettings } from '@/features/settings/settingsStore';
 import { startBrainBackgroundSync } from '@/services/brain';
+import { runAutoSnapshot } from '@/services/transfer/backups';
 import { markErrorLogReady } from '@/services/errorLog';
 import { Background } from './Background';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -22,6 +23,8 @@ function useStartup() {
       if (!useAppStatus.getState().database?.ok) return;
       await loadSettings();
       await markErrorLogReady();
+      // At most once a day, a snapshot of all data inside the app.
+      await runAutoSnapshot();
     })();
   }, [init, loadSettings]);
 }

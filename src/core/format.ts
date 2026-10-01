@@ -45,3 +45,13 @@ export function formatSeconds(ms: number | null): string {
   }).format(seconds);
   return `${formatted} s`;
 }
+
+const dateTimeFormat = new Intl.DateTimeFormat('de-DE', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
+/** "01.10.2026, 14:05" (local time). */
+export function formatDateTime(iso: string): string {
+  return dateTimeFormat.format(new Date(iso));
+}

@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   ArrowLeft,
   CheckSquare,
+  Download,
   FolderInput,
   LayoutGrid,
   List,
@@ -33,7 +34,6 @@ import {
 import { Page } from '@/app/shell/Page';
 import { useHotkeys } from '@/app/hooks/useHotkeys';
 import { collectTags } from '@/core/cards';
-import { parseCardCsv, type CardImportResult } from '@/core/csvImport';
 import { cardsRepo } from '@/data/repositories';
 import type { Card } from '@/data/types';
 import { CardEditor } from '@/features/cards/CardEditor';
@@ -47,11 +47,15 @@ import { formatRelativeTime } from '@/core/relativeTime';
 import { countLevels } from '@/core/mastery';
 import { useProjectMastery } from '@/features/stats/hooks';
 import { MasteryBar } from '@/features/stats/MasteryBar';
+import { ExportDialog } from '@/features/transfer/ExportDialog';
+import { useImport } from '@/features/transfer/useImport';
 import { useLastRound, useProject, useProjects } from './hooks';
 import { ProjectDialog } from './ProjectDialog';
 
 const t = de.pages.project;
 const SEARCH_DEBOUNCE_MS = 200;
+/** Cards rendered at once; large imports would otherwise make the page sluggish. */
+const PAGE_SIZE = 300;
 
 type View = 'list' | 'grid';
 
@@ -96,10 +100,9 @@ export function ProjectPage() {
   const [toDelete, setToDelete] = useState<Pending<Card> | null>(null);
   const [deleteMany, setDeleteMany] = useState(false);
   const [move, setMove] = useState<Pending<string> | null>(null);
-  const [importing, setImporting] = useState<Pending<CardImportResult & { file: string }> | null>(
-    null,
-  );
-  const fileInput = useRef<HTMLInputElement>(null);
+  const [limit, setLimit] = useState(PAGE_SIZE);
+  const [exportDialog, setExportDialog] = useState({ key: 0, open: false });
+  const imports = useImport(projectId);
 
   const tags = useMemo(() => collectTags(allCards ?? []), [allCards]);
   const activeTag = tag && tags.some((t2) => sameTag(t2, tag)) ? tag : null;
@@ -110,6 +113,7 @@ export function ProjectPage() {
       ),
     [searched, activeTag],
   );
+  const shown = visible.length > limit ? visible.slice(0, limit) : visible;
   const moveTargets = (projects ?? []).filter((p) => p.id !== projectId && !p.archived);
 
   const openCreate = () => setEditor((e) => ({ key: e.key + 1, open: true }));
@@ -160,37 +164,6 @@ export function ProjectPage() {
       toast.success(t.toasts.moved(ids.length, target.name));
       setMove((m) => (m ? { ...m, open: false } : null));
       stopSelecting();
-    } catch {
-      toast.error(t.toasts.failed);
-    }
-  };
-
-  const pickImportFile = () => fileInput.current?.click();
-
-  const readImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    try {
-      const result = parseCardCsv(await file.text());
-      if (result.cards.length === 0) {
-        toast.error(t.importEmpty);
-        return;
-      }
-      setImporting({ value: { ...result, file: file.name }, open: true });
-    } catch {
-      toast.error(t.toasts.importFailed);
-    }
-  };
-
-  const importCards = async () => {
-    if (!importing) return;
-    try {
-      const { created, skippedDuplicates } = await cardsRepo.importMany(
-        projectId,
-        importing.value.cards,
-      );
-      toast.success(t.toasts.imported(created.length, skippedDuplicates));
     } catch {
       toast.error(t.toasts.failed);
     }
@@ -291,8 +264,17 @@ export function ProjectPage() {
             <Button size="lg" variant="secondary" icon={Plus} onClick={openCreate}>
               {t.addCard}
             </Button>
-            <Button size="lg" variant="ghost" icon={Upload} onClick={pickImportFile}>
+            <Button size="lg" variant="ghost" icon={Upload} onClick={imports.pickFile}>
               {t.import}
+            </Button>
+            <Button
+              size="lg"
+              variant="ghost"
+              icon={Download}
+              disabled={cardCount === 0}
+              onClick={() => setExportDialog((d) => ({ key: d.key + 1, open: true }))}
+            >
+              {de.transfer.export}
             </Button>
             <Button
               size="lg"
@@ -412,7 +394,7 @@ export function ProjectPage() {
             ) : view === 'list' ? (
               <ul className="flex flex-col gap-2" aria-label={t.viewList}>
                 <AnimatePresence initial={false}>
-                  {visible.map((card) => (
+                  {shown.map((card) => (
                     <CardRow
                       key={card.id}
                       card={card}
@@ -435,7 +417,7 @@ export function ProjectPage() {
                 aria-label={t.viewGrid}
               >
                 <AnimatePresence initial={false}>
-                  {visible.map((card) => (
+                  {shown.map((card) => (
                     <CardTile
                       key={card.id}
                       card={card}
@@ -449,6 +431,16 @@ export function ProjectPage() {
                   ))}
                 </AnimatePresence>
               </ul>
+            )}
+            {visible.length > shown.length && (
+              <Button
+                variant="secondary"
+                className="self-center"
+                onClick={() => setLimit((l) => l + PAGE_SIZE)}
+                data-testid="show-more"
+              >
+                {t.showMore(shown.length, visible.length)}
+              </Button>
             )}
           </>
         )}
@@ -505,6 +497,10 @@ export function ProjectPage() {
         projectId={project.id}
         card={editor.card}
         projectTags={tags}
+        onPasteMany={() => {
+          closeEditor();
+          imports.paste();
+        }}
       />
       <ProjectDialog
         key={`project-${projectDialog.key}`}
@@ -527,26 +523,12 @@ export function ProjectPage() {
         message={toDelete ? t.deleteCardMessage(toDelete.value.front) : undefined}
         confirmLabel={t.deleteConfirm}
       />
-      <input
-        ref={fileInput}
-        type="file"
-        accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
-        className="hidden"
-        data-testid="import-file"
-        onChange={(event) => void readImportFile(event)}
-      />
-      <ConfirmDialog
-        open={importing?.open ?? false}
-        onClose={() => setImporting((i) => (i ? { ...i, open: false } : null))}
-        onConfirm={importCards}
-        title={t.importTitle(importing?.value.cards.length ?? 0)}
-        message={
-          importing
-            ? t.importMessage(importing.value.file, importing.value.invalidRows.length)
-            : undefined
-        }
-        confirmLabel={t.importConfirm}
-        variant="primary"
+      {imports.element}
+      <ExportDialog
+        key={`export-${exportDialog.key}`}
+        open={exportDialog.open}
+        target={{ kind: 'project', project }}
+        onClose={() => setExportDialog((d) => ({ ...d, open: false }))}
       />
       <ConfirmDialog
         open={deleteMany}
