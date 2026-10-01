@@ -374,8 +374,9 @@ test('round end: summary, repeating wrong / all cards and the stored history', a
     ),
   ).toEqual([
     {
+      // New cards: the first round is the spaced-repetition round "Fällig".
       roundNumber: 1,
-      mode: 'all',
+      mode: 'due',
       totalCards: 3,
       correctCount: 1,
       incorrectCount: 2,

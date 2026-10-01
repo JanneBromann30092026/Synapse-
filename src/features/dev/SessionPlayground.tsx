@@ -17,7 +17,7 @@ import { cardsRepo, projectsRepo } from '@/data/repositories';
 import {
   GRADING_MODES,
   STUDY_DIRECTIONS,
-  STUDY_MODES,
+  REPEAT_MODES,
   type GradingMode,
   type StudyDirection,
 } from '@/data/types';
@@ -245,7 +245,7 @@ function SessionRunner({ projectId }: { projectId: string }) {
       {idle && (
         <div className="flex flex-wrap gap-2">
           {phase === 'roundComplete' &&
-            STUDY_MODES.map((mode) => (
+            REPEAT_MODES.map((mode) => (
               <Button
                 key={mode}
                 variant="secondary"

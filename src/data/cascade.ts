@@ -14,6 +14,7 @@ export function cardCascadeTables(database: SynapseDb) {
     database.cardLinks,
     database.graphPositions,
     database.linkExplanations,
+    database.cardSchedules,
   ];
 }
 
@@ -30,6 +31,7 @@ export async function deleteCardsCascade(database: SynapseDb, cardIds: string[])
     database.cardLinks.where('sourceCardId').anyOf(cardIds).delete(),
     database.cardLinks.where('targetCardId').anyOf(cardIds).delete(),
     database.graphPositions.bulkDelete(cardIds),
+    database.cardSchedules.bulkDelete(cardIds),
     database.linkExplanations.where('sourceCardId').anyOf(cardIds).delete(),
     database.linkExplanations.where('targetCardId').anyOf(cardIds).delete(),
   ]);

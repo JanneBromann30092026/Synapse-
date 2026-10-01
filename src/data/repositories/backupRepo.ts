@@ -15,6 +15,7 @@ import {
   type Snapshot,
   type SnapshotReason,
 } from '../types';
+import { rebuildSchedules, refreshSchedules } from '../scheduling';
 import { compact, newId, nowIso } from '../util';
 import { LINK_STATE_KEY } from './brainRepo';
 
@@ -157,7 +158,7 @@ export const backupRepo = {
   async collectExport(scope: ExportScope, { includeHistory }: ExportOptions): Promise<SynapseFile> {
     return db.transaction(
       'r',
-      [db.projects, db.cards, db.studySessions, db.answers, db.cardLinks],
+      [db.projects, db.cards, db.studySessions, db.answers, db.cardLinks, db.cardSchedules],
       async () => {
         const projectId = scope === 'all' ? null : scope.projectId;
         const projects =
@@ -230,7 +231,7 @@ export const backupRepo = {
   async importFile(file: SynapseFile, options: ImportFileOptions): Promise<ImportFileResult> {
     return db.transaction(
       'rw',
-      [db.projects, db.cards, db.studySessions, db.answers, db.cardLinks],
+      [db.projects, db.cards, db.studySessions, db.answers, db.cardLinks, db.cardSchedules],
       async () => {
         const [projects, cards, sessionIds, answerIds, links] = await Promise.all([
           db.projects.toArray(),
@@ -259,6 +260,10 @@ export const backupRepo = {
         await db.studySessions.bulkAdd(plan.studySessions);
         await db.answers.bulkAdd(plan.answers);
         await db.cardLinks.bulkAdd(plan.cardLinks);
+        await refreshSchedules(
+          db,
+          plan.answers.map((answer) => answer.cardId),
+        );
         return {
           outcomes: plan.outcomes,
           projectsAdded: plan.projects.length,
@@ -289,6 +294,7 @@ export const backupRepo = {
         db.linkExplanations,
         db.settings,
         db.cardEmbeddings,
+        db.cardSchedules,
       ],
       async () => {
         const cardIds = new Set(file.cards.map((card) => card.id));
@@ -319,6 +325,7 @@ export const backupRepo = {
           db.linkExplanations.bulkAdd(file.linkExplanations),
           db.settings.bulkAdd([...backupSettings(file.settings), ...keptSettings]),
         ]);
+        await rebuildSchedules(db);
       },
     );
   },

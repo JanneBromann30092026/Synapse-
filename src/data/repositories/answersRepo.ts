@@ -3,23 +3,29 @@ import { db } from '../db';
 import { RecordNotFoundError, parseOrThrow } from '../errors';
 import { answerCreateSchema, type AnswerCreateInput } from '../schemas';
 import type { Answer, Verdict } from '../types';
+import { refreshSchedules } from '../scheduling';
 import { compact, newId, nowIso } from '../util';
 
 export const answersRepo = {
   /** Logs an answer permanently. Session and card must exist. */
   async create(input: AnswerCreateInput): Promise<Answer> {
     const data = parseOrThrow(answerCreateSchema, input);
-    return db.transaction('rw', [db.answers, db.studySessions, db.cards], async () => {
-      const [session, card] = await Promise.all([
-        db.studySessions.get(data.sessionId),
-        db.cards.get(data.cardId),
-      ]);
-      if (!session) throw new RecordNotFoundError('studySession', data.sessionId);
-      if (!card) throw new RecordNotFoundError('card', data.cardId);
-      const answer: Answer = compact({ id: newId(), ...data, answeredAt: nowIso() });
-      await db.answers.add(answer);
-      return answer;
-    });
+    return db.transaction(
+      'rw',
+      [db.answers, db.studySessions, db.cards, db.cardSchedules],
+      async () => {
+        const [session, card] = await Promise.all([
+          db.studySessions.get(data.sessionId),
+          db.cards.get(data.cardId),
+        ]);
+        if (!session) throw new RecordNotFoundError('studySession', data.sessionId);
+        if (!card) throw new RecordNotFoundError('card', data.cardId);
+        const answer: Answer = compact({ id: newId(), ...data, answeredAt: nowIso() });
+        await db.answers.add(answer);
+        await refreshSchedules(db, [answer.cardId]);
+        return answer;
+      },
+    );
   },
 
   async get(id: string): Promise<Answer | undefined> {
@@ -31,12 +37,13 @@ export const answersRepo = {
    * no longer fits and is removed.
    */
   async overrideVerdict(id: string, verdict: Verdict): Promise<Answer> {
-    return db.transaction('rw', db.answers, async () => {
+    return db.transaction('rw', [db.answers, db.cardSchedules], async () => {
       const existing = await db.answers.get(id);
       if (!existing) throw new RecordNotFoundError('answer', id);
       const answer: Answer = { ...existing, verdict, method: 'override', confidence: 1 };
       delete answer.feedback;
       await db.answers.put(answer);
+      await refreshSchedules(db, [answer.cardId]);
       return answer;
     });
   },

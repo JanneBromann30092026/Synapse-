@@ -35,6 +35,7 @@ export const de = {
       cardCount: (n: number) => (n === 1 ? '1 Karte' : `${n} Karten`),
       neverStudied: 'Noch nie gelernt',
       lastStudied: (relative: string) => `Zuletzt gelernt: ${relative}`,
+      due: (n: number) => `${n} fällig`,
       study: 'Lernen',
       archivedBadge: 'Archiviert',
       reorderHint: 'Gedrückt halten und ziehen zum Sortieren',
@@ -97,6 +98,10 @@ export const de = {
       back: 'Zu den Projekten',
       study: 'Lernen',
       lastRound: (percentage: number, when: string) => `Letzte Runde: ${percentage} % · ${when}`,
+      due: (n: number) => (n === 1 ? '1 Karte fällig' : `${n} Karten fällig`),
+      fresh: (n: number) => (n === 1 ? '1 neu' : `${n} neu`),
+      nothingDue: 'Heute nichts fällig',
+      nextDue: (relative: string) => `nächste Wiederholung ${relative}`,
       addCard: 'Karte hinzufügen',
       edit: 'Bearbeiten',
       emptyTitle: 'Noch keine Karten',
@@ -208,6 +213,20 @@ export const de = {
         start: 'Los geht’s',
         emptyTitle: 'Noch keine Karten',
         emptyText: 'Lege zuerst Karten in diesem Projekt an, dann kannst du lernen.',
+        scope: 'Karten',
+        scopeOptions: {
+          due: (n: number) => `Fällig (${n})`,
+          all: (n: number) => `Alle (${n})`,
+        },
+        scopeHints: {
+          due: (due: number, fresh: number) =>
+            `Spaced Repetition: ${due === 1 ? '1 Karte' : `${due} Karten`} zur Wiederholung${fresh > 0 ? ` und ${fresh} neue` : ''}. Wer richtig antwortet, sieht die Karte erst nach immer längeren Abständen wieder.`,
+          nothingDue: (next: string | null) =>
+            next
+              ? `Heute ist nichts fällig. Nächste Wiederholung ${next}.`
+              : 'Heute ist nichts fällig.',
+          all: 'Alle Karten des Projekts, unabhängig von der Fälligkeit. Auch diese Antworten zählen für die Wiederholungsplanung.',
+        },
       },
       round: (n: number) => `Runde ${n}`,
       position: (current: number, total: number) => `${current} / ${total}`,
@@ -812,6 +831,9 @@ export const de = {
       typoTolerance: 'Tippfehlertoleranz',
       typoHint:
         'Wie ähnlich eine Antwort sein muss, damit ein Tippfehler noch als richtig zählt. 1,00 = nur exakte Treffer.',
+      newCardsPerRound: 'Neue Karten pro Runde „Fällig“',
+      newCardsHint:
+        'So viele noch nie gelernte Karten kommen zu den fälligen Wiederholungen dazu. 0 = nur Wiederholungen.',
     },
     storage: {
       title: 'Speicher',

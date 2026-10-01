@@ -15,6 +15,8 @@ export type ThemePreference = (typeof THEME_PREFERENCES)[number];
 export const BOOT_PREFS_KEY = 'synapse.bootPrefs';
 
 export const TYPO_TOLERANCE = { min: 0.5, max: 1, step: 0.01, default: 0.85 } as const;
+/** New (never answered) cards per "Fällige Karten" round. */
+export const NEW_CARDS_PER_ROUND = { min: 0, max: 100, step: 5, default: 20 } as const;
 
 const schemas = {
   // Appearance
@@ -29,6 +31,7 @@ const schemas = {
   defaultDirection: z.enum(STUDY_DIRECTIONS),
   defaultGradingMode: z.enum(GRADING_MODES),
   typoTolerance: z.number().min(TYPO_TOLERANCE.min).max(TYPO_TOLERANCE.max),
+  newCardsPerRound: z.number().int().min(NEW_CARDS_PER_ROUND.min).max(NEW_CARDS_PER_ROUND.max),
   // Brain
   brainThreshold: z.number().min(LINK_THRESHOLD.min).max(LINK_THRESHOLD.max),
   brainTopK: z.number().int().min(LINK_TOP_K.min).max(LINK_TOP_K.max),
@@ -62,6 +65,7 @@ export const SETTINGS_DEFAULTS: SettingsValues = {
   defaultDirection: 'front_to_back',
   defaultGradingMode: 'ai',
   typoTolerance: TYPO_TOLERANCE.default,
+  newCardsPerRound: NEW_CARDS_PER_ROUND.default,
   brainThreshold: DEFAULT_LINK_OPTIONS.threshold,
   brainTopK: DEFAULT_LINK_OPTIONS.topK,
   brainEmbedder: 'model',

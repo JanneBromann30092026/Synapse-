@@ -87,6 +87,7 @@ Touch-first (iPad):
 - [x] 14 Gehirn – Interaktion
 - [x] 15 Import, Export & Backups
 - [x] 16 Feinschliff & Installation
+- [x] 17 Spaced Repetition (nach der Roadmap, FSRS)
 
 ## Entscheidungen & Notizen
 - Ursprünglich als Electron-Desktop-App geplant; umgestellt auf PWA, weil nur ein iPad zur Verfügung steht. Folgen: IndexedDB statt SQLite, kein Main-Prozess/IPC, KI-Aufruf direkt aus dem Browser, kein Ollama, Backups als Export statt Dateikopie.
@@ -211,3 +212,7 @@ Touch-first (iPad):
 - Tippflächen: Tag-Filter auf 44 px. Ausnahme Heatmap: Zellen ~37 px, die Trefferfläche reicht per `::before` über die Lücke (~43 px Raster).
 - Gesamtdurchlauf `e2e/journey.spec.ts`: leerer Speicher → Onboarding → Projekt + Karten → Lernen (lokal + gemockte KI) → Falsche wiederholen → Statistik → Gehirn (Test-Embedder) → JSON-Export → Import als neues Projekt.
 - Settings-Store: Änderungen, die vor dem Ende von `load()` passieren (Tipp während eines langsamen Starts), werden vom Laden nicht mehr überschrieben (`changedWhileLoading`). Fiel in der vollen E2E-Suite unter Last auf (Entwicklermodus-Schalter direkt nach dem Öffnen).
+- Spaced Repetition (nach Schritt 16): FSRS-5 mit Standardgewichten in `src/core/scheduling/fsrs.ts` statt SM-2 – modelliert Stabilität/Schwierigkeit pro Karte und kommt mit Wiederholungen zu beliebigen Zeiten zurecht (jede Runde wird geloggt, nicht nur „Fällig“). Nur zwei Bewertungen: richtig = Good (3), falsch = Again (1). Falsch beantwortete Karten sind immer am nächsten Tag wieder fällig (statt Lern-Schritten); Wiederholungen am selben Tag (< 24 h) wirken nur kurzfristig (FSRS-5-Kurzzeitformel). Ziel-Behaltensquote 0,9, Intervall 1–36500 Tage, kein Fuzz.
+- Datenbank Version 5: Tabelle `cardSchedules` (`cardId, due`) = abgeleitete Daten, immer ein Replay aller Antworten der Karte (`src/data/scheduling.ts`). Migration befüllt sie aus dem vorhandenen Lernverlauf. Aktualisiert in denselben Transaktionen wie die Antworten (`answersRepo.create/overrideVerdict`, `sessionsRepo.importHistory`, `backupRepo.importFile` → `refreshSchedules`; `restore` → `rebuildSchedules`), kaskadiert mit Karten. Nicht in Export/Backup. Ab 50 Karten liest `refreshSchedules` alle Antworten statt `anyOf` (in fake-indexeddb sonst sekundenlang).
+- Fällig = `due` vor Beginn des nächsten lokalen Tages (`dueCutoff`), d. h. den ganzen Tag. `scheduleRepo.projectDue` (fällig nach Überfälligkeit, neue in Erstellreihenfolge, `nextDueAt`) und `countsByProject` (nur Index-Schlüssel). Studienmodus `due` (neu in `STUDY_MODES`; Wiederholen am Rundenende nutzt `REPEAT_MODES`). Rundenauswahl im Setup-Sheet: „Fällig (n)“ = alle fälligen + bis zu `newCardsPerRound` neue (Einstellung, Standard 20, 0–100) | „Alle (n)“; Standard „Fällig“, wenn etwas fällig/neu ist. Projektkarte zeigt „n fällig“, Projektseite „n Karten fällig · m neu“ bzw. „Heute nichts fällig · nächste Wiederholung …“. Cross-Runden (Statistik, Gehirn) bleiben ohne Auswahl.
+- E2E `e2e/spaced.spec.ts` stellt die Uhr per `page.clock.setSystemTime` zwei Tage vor. Screenshots `spaced-*` (mit simuliertem Lernverlauf).

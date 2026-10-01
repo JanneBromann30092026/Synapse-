@@ -8,6 +8,7 @@ import {
   type SessionResultInput,
 } from '../schemas';
 import type { Answer, StudySession } from '../types';
+import { refreshSchedules } from '../scheduling';
 import { newId, nowIso } from '../util';
 
 async function close(
@@ -80,13 +81,18 @@ export const sessionsRepo = {
     const sessionIds = new Set(sessions.map((session) => session.id));
     const index = answers.findIndex((answer) => !sessionIds.has(answer.sessionId));
     if (index !== -1) throw new ValidationError('sessionId', 'invalid', index);
-    await db.transaction('rw', [db.studySessions, db.answers, db.cards], async () => {
-      const cardIds = [...new Set(answers.map((answer) => answer.cardId))];
-      const cards = await db.cards.bulkGet(cardIds);
-      const missing = cards.findIndex((card) => card === undefined);
-      if (missing !== -1) throw new RecordNotFoundError('card', cardIds[missing] ?? '');
-      await db.studySessions.bulkAdd(sessions);
-      await db.answers.bulkAdd(answers);
-    });
+    await db.transaction(
+      'rw',
+      [db.studySessions, db.answers, db.cards, db.cardSchedules],
+      async () => {
+        const cardIds = [...new Set(answers.map((answer) => answer.cardId))];
+        const cards = await db.cards.bulkGet(cardIds);
+        const missing = cards.findIndex((card) => card === undefined);
+        if (missing !== -1) throw new RecordNotFoundError('card', cardIds[missing] ?? '');
+        await db.studySessions.bulkAdd(sessions);
+        await db.answers.bulkAdd(answers);
+        await refreshSchedules(db, cardIds);
+      },
+    );
   },
 };

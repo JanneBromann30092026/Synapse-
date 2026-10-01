@@ -34,6 +34,7 @@ describe('cascading delete', () => {
       gradingCache: 2,
       cardEmbeddings: 2,
       cardLinks: 0,
+      cardSchedules: 2,
       // 2 cards + 1 project hub of the kept project.
       graphPositions: 3,
     });
@@ -62,6 +63,7 @@ describe('cascading delete', () => {
       gradingCache: 1,
       cardEmbeddings: 1,
       cardLinks: 0,
+      cardSchedules: 1,
       graphPositions: 2,
       studySessions: 1,
     });

@@ -1,6 +1,9 @@
 import { useLiveData } from '@/data/live';
-import { projectsRepo, sessionsRepo } from '@/data/repositories';
-import type { Project, ProjectSummary, StudySession } from '@/data/types';
+import { useState } from 'react';
+import { dueCutoff, type DueRound } from '@/core/scheduling/fsrs';
+import { projectsRepo, scheduleRepo, sessionsRepo } from '@/data/repositories';
+import type { DueCounts, Project, ProjectSummary, StudySession } from '@/data/types';
+import { useSettings } from '@/features/settings/settingsStore';
 
 /** All projects (incl. archived) with card count and last study date; undefined while loading. */
 export function useProjects(): ProjectSummary[] | undefined {
@@ -17,5 +20,27 @@ export function useLastRound(projectId: string): StudySession | null | undefined
   return useLiveData(
     async () => (await sessionsRepo.getLastCompleted(projectId)) ?? null,
     [projectId],
+  );
+}
+
+/** Start of the next local day when the page opened (cards due before it count as due today). */
+function useDueCutoff(): number {
+  const [cutoff] = useState(() => dueCutoff(Date.now()));
+  return cutoff;
+}
+
+/** Due and new cards per project id; undefined while loading. */
+export function useDueCounts(): Map<string, DueCounts> | undefined {
+  const cutoff = useDueCutoff();
+  return useLiveData(() => scheduleRepo.countsByProject(cutoff), [cutoff]);
+}
+
+/** Spaced-repetition plan of a project (due, new, next due); undefined while loading. */
+export function useDueRound(projectId: string): DueRound | undefined {
+  const cutoff = useDueCutoff();
+  const newLimit = useSettings((s) => s.newCardsPerRound);
+  return useLiveData(
+    () => scheduleRepo.projectDue(projectId, newLimit, cutoff),
+    [projectId, newLimit, cutoff],
   );
 }

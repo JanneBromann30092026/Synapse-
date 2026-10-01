@@ -15,6 +15,8 @@ export interface ProjectCardData {
   archived: boolean;
   cardCount: number;
   lastStudiedAt?: string;
+  /** Cards due for review today (spaced repetition). */
+  dueCount?: number;
 }
 
 export interface ProjectCardViewProps {
@@ -90,6 +92,15 @@ export function ProjectCardView({
           <span className="flex items-center gap-1.5 font-medium text-fg-secondary">
             <Layers size={15} aria-hidden />
             {t.cardCount(project.cardCount)}
+            {project.dueCount !== undefined && project.dueCount > 0 && (
+              <span
+                className="ml-1 rounded-full px-2 py-0.5 text-xs font-semibold"
+                style={{ background: soft, color }}
+                data-testid="project-due"
+              >
+                {t.due(project.dueCount)}
+              </span>
+            )}
           </span>
           <span className="truncate">
             {project.lastStudiedAt

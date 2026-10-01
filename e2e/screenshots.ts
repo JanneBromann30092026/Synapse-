@@ -955,6 +955,34 @@ async function dropOverlay(page: Page) {
   await page.getByTestId('drop-overlay').waitFor();
 }
 
+/** Spaced repetition: due badges and counts need the simulated history. */
+async function spacedProjects(page: Page) {
+  await ensureHistory(page);
+  await page.goto(`${PREVIEW_URL}#/projects`);
+  await page.getByTestId('project-due').first().waitFor();
+  await page.waitForTimeout(400);
+}
+
+async function spacedProject(page: Page) {
+  await spacedProjects(page);
+  await openProject('Japanisch Grundwortschatz')(page);
+  await page.getByTestId('due-summary').waitFor();
+}
+
+async function spacedSetup(page: Page) {
+  await setAiProvider(page, 'Aus');
+  await spacedProject(page);
+  await page.getByRole('button', { name: 'Lernen', exact: true }).click();
+  await page.getByTestId('study-scope-hint').waitFor();
+  await page.waitForTimeout(500);
+}
+
+async function spacedSettings(page: Page) {
+  const slider = page.getByRole('slider', { name: 'Neue Karten pro Runde „Fällig“' });
+  await slider.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(300);
+}
+
 const SHOTS: Shot[] = [
   { route: '/settings', name: 'settings', scroll: true },
   { route: '/settings', name: 'settings-ai', prepare: settingsWithKey },
@@ -1014,6 +1042,10 @@ const SHOTS: Shot[] = [
   { route: '/settings', name: 'transfer-restore', prepare: restoreConfirm },
   { route: '/settings', name: 'error-log', prepare: settingsErrorLog },
   { route: '/projects', name: 'shortcuts', prepare: shortcuts },
+  { route: '/projects', name: 'spaced-projects', prepare: spacedProjects },
+  { route: '/projects', name: 'spaced-project', prepare: spacedProject },
+  { route: '/projects', name: 'spaced-setup', prepare: spacedSetup },
+  { route: '/settings', name: 'spaced-settings', prepare: spacedSettings },
 ];
 
 const VARIANTS: { name: string; options: BrowserContextOptions }[] = [
