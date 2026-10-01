@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -12,6 +12,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 import {
@@ -32,6 +33,7 @@ import {
 import { Page } from '@/app/shell/Page';
 import { useHotkeys } from '@/app/hooks/useHotkeys';
 import { collectTags } from '@/core/cards';
+import { parseCardCsv, type CardImportResult } from '@/core/csvImport';
 import { cardsRepo } from '@/data/repositories';
 import type { Card } from '@/data/types';
 import { CardEditor } from '@/features/cards/CardEditor';
@@ -94,6 +96,10 @@ export function ProjectPage() {
   const [toDelete, setToDelete] = useState<Pending<Card> | null>(null);
   const [deleteMany, setDeleteMany] = useState(false);
   const [move, setMove] = useState<Pending<string> | null>(null);
+  const [importing, setImporting] = useState<Pending<CardImportResult & { file: string }> | null>(
+    null,
+  );
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const tags = useMemo(() => collectTags(allCards ?? []), [allCards]);
   const activeTag = tag && tags.some((t2) => sameTag(t2, tag)) ? tag : null;
@@ -154,6 +160,37 @@ export function ProjectPage() {
       toast.success(t.toasts.moved(ids.length, target.name));
       setMove((m) => (m ? { ...m, open: false } : null));
       stopSelecting();
+    } catch {
+      toast.error(t.toasts.failed);
+    }
+  };
+
+  const pickImportFile = () => fileInput.current?.click();
+
+  const readImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const result = parseCardCsv(await file.text());
+      if (result.cards.length === 0) {
+        toast.error(t.importEmpty);
+        return;
+      }
+      setImporting({ value: { ...result, file: file.name }, open: true });
+    } catch {
+      toast.error(t.toasts.importFailed);
+    }
+  };
+
+  const importCards = async () => {
+    if (!importing) return;
+    try {
+      const { created, skippedDuplicates } = await cardsRepo.importMany(
+        projectId,
+        importing.value.cards,
+      );
+      toast.success(t.toasts.imported(created.length, skippedDuplicates));
     } catch {
       toast.error(t.toasts.failed);
     }
@@ -253,6 +290,9 @@ export function ProjectPage() {
             </Button>
             <Button size="lg" variant="secondary" icon={Plus} onClick={openCreate}>
               {t.addCard}
+            </Button>
+            <Button size="lg" variant="ghost" icon={Upload} onClick={pickImportFile}>
+              {t.import}
             </Button>
             <Button
               size="lg"
@@ -486,6 +526,27 @@ export function ProjectPage() {
         title={t.deleteCardTitle}
         message={toDelete ? t.deleteCardMessage(toDelete.value.front) : undefined}
         confirmLabel={t.deleteConfirm}
+      />
+      <input
+        ref={fileInput}
+        type="file"
+        accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+        className="hidden"
+        data-testid="import-file"
+        onChange={(event) => void readImportFile(event)}
+      />
+      <ConfirmDialog
+        open={importing?.open ?? false}
+        onClose={() => setImporting((i) => (i ? { ...i, open: false } : null))}
+        onConfirm={importCards}
+        title={t.importTitle(importing?.value.cards.length ?? 0)}
+        message={
+          importing
+            ? t.importMessage(importing.value.file, importing.value.invalidRows.length)
+            : undefined
+        }
+        confirmLabel={t.importConfirm}
+        variant="primary"
       />
       <ConfirmDialog
         open={deleteMany}
