@@ -54,6 +54,8 @@ async function playRound(page: Page, known: string[]) {
 test('stats: empty state, mastery after two rounds and a round with the hardest cards', async ({
   page,
 }) => {
+  // Two full rounds and a cross-project round take close to the default 30 s.
+  test.setTimeout(60_000);
   const problems = collectConsoleProblems(page);
   let apiCalls = 0;
   await page.route('https://api.anthropic.com/**', async (route) => {

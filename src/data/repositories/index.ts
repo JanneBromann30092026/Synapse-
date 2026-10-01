@@ -38,3 +38,14 @@ export {
   type LinkState,
   type PendingCard,
 } from './brainRepo';
+export {
+  backupRepo,
+  snapshotsRepo,
+  BACKUP_SETTING_PREFIX,
+  LAST_EXPORTED_KEY,
+  REMINDER_SNOOZED_KEY,
+  type BackupStatus,
+  type ExportScope,
+  type ImportFileResult,
+  type SnapshotInfo,
+} from './backupRepo';

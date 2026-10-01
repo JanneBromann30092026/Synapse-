@@ -4,6 +4,7 @@ import { Check, ShieldCheck } from 'lucide-react';
 import { SegmentedControl, Surface, Toggle } from '@/components/ui';
 import { Page } from '@/app/shell/Page';
 import { de } from '@/i18n/de';
+import { BackupSettings } from '@/features/transfer/BackupSettings';
 import { AiSettings } from './AiSettings';
 import { BrainSettings } from './BrainSettings';
 import { LearningSettings } from './LearningSettings';
@@ -90,6 +91,10 @@ export function SettingsPage() {
 
         <Section title={t.brain.title} testId="settings-brain">
           <BrainSettings />
+        </Section>
+
+        <Section title={de.transfer.backups.title} testId="settings-backups">
+          <BackupSettings />
         </Section>
 
         <Section title={t.storage.title}>

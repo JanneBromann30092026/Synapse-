@@ -16,7 +16,7 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import { Archive, ArchiveRestore, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
 import {
   ActionMenu,
   Button,
@@ -34,6 +34,8 @@ import { projectsRepo } from '@/data/repositories';
 import type { ProjectSummary } from '@/data/types';
 import { de } from '@/i18n/de';
 import { useLaunchStudy } from '@/features/study/studyLaunch';
+import { BackupReminder } from '@/features/transfer/BackupReminder';
+import { useImport } from '@/features/transfer/useImport';
 import { spring, TAP_SCALE } from '@/styles/motion';
 import { useProjects } from './hooks';
 import { ProjectDialog } from './ProjectDialog';
@@ -79,6 +81,7 @@ function NewProjectTile({ onClick }: { onClick: () => void }) {
 export function ProjectsPage() {
   const launchStudy = useLaunchStudy();
   const projects = useProjects();
+  const imports = useImport();
   const [query, setQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [dialog, setDialog] = useState<DialogState>({ key: 0, open: false });
@@ -221,11 +224,21 @@ export function ProjectsPage() {
     <Page
       title={t.title}
       actions={
-        hasProjects && (
-          <Button icon={Plus} onClick={openCreate}>
-            {t.newProject}
+        <>
+          <Button
+            variant="ghost"
+            icon={Upload}
+            onClick={imports.pickFile}
+            data-testid="projects-import"
+          >
+            {de.transfer.import}
           </Button>
-        )
+          {hasProjects && (
+            <Button icon={Plus} onClick={openCreate}>
+              {t.newProject}
+            </Button>
+          )}
+        </>
       }
     >
       {projects === undefined ? (
@@ -246,6 +259,7 @@ export function ProjectsPage() {
         />
       ) : (
         <div className="flex flex-col gap-5">
+          <BackupReminder />
           <div className="flex flex-wrap items-center gap-3">
             <label className="relative min-w-56 flex-1 sm:max-w-sm">
               <span className="sr-only">{t.search}</span>
@@ -330,6 +344,7 @@ export function ProjectsPage() {
         </div>
       )}
 
+      {imports.element}
       <ProjectDialog
         key={dialog.key}
         open={dialog.open}

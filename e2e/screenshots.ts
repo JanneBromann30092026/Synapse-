@@ -736,6 +736,206 @@ async function settingsBrain(page: Page) {
   });
 }
 
+// --- Import, export & backups (step 15) -------------------------------------
+
+const SAMPLE_CSV =
+  'Begriff;Definition;Notiz;Tags\n' +
+  'BIP;Bruttoinlandsprodukt;Marktwert aller Endprodukte einer Periode;VWL, Makro\n' +
+  'Inflation;Anstieg des Preisniveaus;gemessen am VPI;VWL, Makro\n' +
+  'Multiplikator;1/(1 − c1);bei c1 = 0,6: 2,5;VWL, Gütermarkt\n' +
+  'Fiskalpolitik;Staatsausgaben und Steuern;;VWL, Politik\n' +
+  'Okun-Gesetz;;Arbeitslosigkeit und Wachstum;VWL\n' +
+  'Sparquote;Anteil des gesparten Einkommens;s = S/Y;VWL, Makro\n';
+
+async function csvMapping(page: Page) {
+  await openProject('BWL-Grundbegriffe')(page);
+  await page.getByTestId('import-file').setInputFiles({
+    name: 'vwl-makro.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(SAMPLE_CSV, 'utf-8'),
+  });
+  await page.getByTestId('import-summary').waitFor();
+}
+
+async function csvResult(page: Page) {
+  await csvMapping(page);
+  await page.getByTestId('import-confirm').click();
+  await page.getByTestId('import-result').waitFor();
+}
+
+async function pasteCards(page: Page) {
+  await openProject('Japanisch Grundwortschatz')(page);
+  await page.getByRole('button', { name: 'Karte hinzufügen' }).click();
+  await page.getByTestId('paste-many').click();
+  await page
+    .getByTestId('paste-text')
+    .fill('魚\tFisch\tさかな\n鳥\tVogel\tとり\n花\tBlume\tはな\n山\tBerg\tやま');
+  await page.getByTestId('import-preview').waitFor();
+}
+
+function sampleSynapseFile(): string {
+  const t = '2026-09-28T18:30:00.000Z';
+  const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  const cards = [
+    ['犬', 'Hund'],
+    ['猫', 'Katze'],
+    ['水', 'Wasser'],
+    ['本', 'Buch'],
+  ];
+  const spanish = [
+    ['hola', 'hallo'],
+    ['gracias', 'danke'],
+    ['por favor', 'bitte'],
+  ];
+  return JSON.stringify({
+    format: 'synapse',
+    version: 1,
+    kind: 'export',
+    exportedAt: t,
+    projects: [
+      {
+        id: id(1),
+        name: 'Japanisch Grundwortschatz',
+        color: 'rose',
+        includeInBrain: true,
+        sortOrder: 0,
+        archived: false,
+        createdAt: t,
+        updatedAt: t,
+      },
+      {
+        id: id(2),
+        name: 'Spanisch A1',
+        color: 'amber',
+        icon: 'languages',
+        includeInBrain: true,
+        sortOrder: 1,
+        archived: false,
+        createdAt: t,
+        updatedAt: t,
+      },
+    ],
+    cards: [
+      ...cards.map(([front, back], i) => ({
+        id: id(100 + i),
+        projectId: id(1),
+        front,
+        back,
+        tags: [],
+        createdAt: t,
+        updatedAt: t,
+      })),
+      ...spanish.map(([front, back], i) => ({
+        id: id(200 + i),
+        projectId: id(2),
+        front,
+        back,
+        tags: ['A1'],
+        createdAt: t,
+        updatedAt: t,
+      })),
+    ],
+    studySessions: [
+      {
+        id: id(300),
+        projectId: id(2),
+        roundNumber: 1,
+        mode: 'all',
+        direction: 'front_to_back',
+        gradingMode: 'self',
+        startedAt: t,
+        finishedAt: t,
+        aborted: false,
+        totalCards: 3,
+        correctCount: 2,
+        incorrectCount: 1,
+      },
+    ],
+    answers: spanish.map((_, i) => ({
+      id: id(400 + i),
+      sessionId: id(300),
+      cardId: id(200 + i),
+      directionUsed: 'front_to_back',
+      userInput: 'x',
+      verdict: i === 2 ? 'incorrect' : 'correct',
+      method: 'self',
+      answeredAt: t,
+    })),
+  });
+}
+
+async function jsonImport(page: Page) {
+  await page.getByTestId('import-file').setInputFiles({
+    name: 'synapse-export-2026-09-28.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(sampleSynapseFile(), 'utf-8'),
+  });
+  await page.getByTestId('json-project').first().getByRole('radiogroup').waitFor();
+}
+
+async function exportProject(page: Page) {
+  await openProject('Japanisch Grundwortschatz')(page);
+  await page.getByRole('button', { name: 'Exportieren' }).click();
+  await page.getByTestId('export-file').getByText('.json').waitFor();
+}
+
+async function backupSettings(page: Page) {
+  const section = page.getByTestId('settings-backups');
+  await section.getByTestId('snapshot-now').click();
+  await page.getByText('Sicherung erstellt').waitFor();
+  await section.scrollIntoViewIfNeeded();
+  await section.evaluate((element) => element.scrollIntoView({ block: 'start' }));
+  await page.waitForTimeout(2600);
+}
+
+async function restoreConfirm(page: Page) {
+  await backupSettings(page);
+  await page
+    .getByTestId('snapshot-list')
+    .getByRole('button', { name: 'Wiederherstellen' })
+    .first()
+    .click();
+  await page.getByRole('alertdialog').waitFor();
+}
+
+async function backupReminder(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const open = indexedDB.open('synapse');
+        open.onsuccess = () => {
+          const tx = open.result.transaction('settings', 'readwrite');
+          tx.objectStore('settings').put({
+            key: 'backup.lastExportedAt',
+            value: '2026-09-12T10:00:00.000Z',
+          });
+          tx.objectStore('settings').delete('backup.reminderSnoozedUntil');
+          tx.oncomplete = () => {
+            open.result.close();
+            resolve();
+          };
+        };
+      }),
+  );
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.getByTestId('backup-reminder').waitFor();
+}
+
+async function backupExport(page: Page) {
+  await backupReminder(page);
+  await page.getByTestId('backup-reminder').getByRole('button', { name: 'Jetzt sichern' }).click();
+  await page.getByTestId('export-file').getByText('.json').waitFor();
+}
+
+async function dropOverlay(page: Page) {
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.items.add(new File(['a;b'], 'karten.csv', { type: 'text/csv' }));
+    window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: data, cancelable: true }));
+  });
+  await page.getByTestId('drop-overlay').waitFor();
+}
+
 const SHOTS: Shot[] = [
   { route: '/settings', name: 'settings', scroll: true },
   { route: '/settings', name: 'settings-ai', prepare: settingsWithKey },
@@ -783,6 +983,16 @@ const SHOTS: Shot[] = [
   { route: '/brain', name: 'brain-hub', prepare: brainHub },
   { route: '/brain', name: 'brain-filter', prepare: brainFilter },
   { route: '/settings', name: 'brain-settings', prepare: settingsBrain },
+  { route: '/projects', name: 'transfer-csv', prepare: csvMapping },
+  { route: '/projects', name: 'transfer-result', prepare: csvResult },
+  { route: '/projects', name: 'transfer-paste', prepare: pasteCards },
+  { route: '/projects', name: 'transfer-json', prepare: jsonImport },
+  { route: '/projects', name: 'transfer-export', prepare: exportProject },
+  { route: '/projects', name: 'transfer-reminder', prepare: backupReminder },
+  { route: '/projects', name: 'transfer-backup-export', prepare: backupExport },
+  { route: '/projects', name: 'transfer-drop', prepare: dropOverlay },
+  { route: '/settings', name: 'transfer-backups', prepare: backupSettings },
+  { route: '/settings', name: 'transfer-restore', prepare: restoreConfirm },
 ];
 
 const VARIANTS: { name: string; options: BrowserContextOptions }[] = [

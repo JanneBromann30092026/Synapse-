@@ -205,13 +205,15 @@ test('demo data, search, tag filter, edit, swipe, grid and selection', async ({ 
   expect(problems).toEqual([]);
 });
 
-test('csv import: preview, import and skip duplicates', async ({ page }) => {
+test('csv import: mapping preview, import and skip duplicates', async ({ page }) => {
   const problems = collectConsoleProblems(page);
   await page.goto('./#/projects');
   await page.getByRole('button', { name: 'Erstes Projekt anlegen' }).click();
   await page.getByRole('dialog').getByLabel('Name').fill('VWL');
   await page.getByRole('button', { name: 'Anlegen', exact: true }).click();
   await page.getByRole('link', { name: 'VWL öffnen' }).click();
+  // The start page has its own import input: wait until the project page is shown.
+  await expect(page.getByRole('heading', { level: 1, name: 'VWL' })).toBeVisible();
 
   const csv =
     '﻿"front","back","notes","tags"\r\n' +
@@ -226,18 +228,24 @@ test('csv import: preview, import and skip duplicates', async ({ page }) => {
     });
 
   await upload('vwl.csv');
-  const dialog = page.getByRole('alertdialog', { name: '2 Karten importieren?' });
-  await expect(dialog).toContainText('„vwl.csv“');
-  await expect(dialog).toContainText('1 Zeile ohne Vorder- oder Rückseite');
-  await dialog.getByRole('button', { name: 'Importieren' }).click();
-  await expect(page.getByText('2 Karten importiert')).toBeVisible();
+  const dialog = page.getByRole('dialog', { name: 'Karten importieren' });
+  await expect(dialog).toContainText('vwl.csv · UTF-8');
+  await expect(dialog.getByTestId('import-summary')).toHaveText(
+    '2 Karten erkannt · 1 fehlerhafte Zeile',
+  );
+  await dialog.getByTestId('import-confirm').click();
+  await expect(page.getByTestId('import-result')).toContainText('2 Karten importiert');
+  await expect(page.getByTestId('import-invalid')).toContainText('Zeile 4: Rückseite fehlt');
+  await page.getByRole('button', { name: 'Fertig' }).click();
   await expect(rows(page)).toHaveCount(2);
   await expect(rows(page).first()).toContainText('Abkürzung BIP');
 
   // Importing the same file again creates nothing new.
   await upload('vwl.csv');
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Importieren' }).click();
-  await expect(page.getByText('0 Karten importiert · 2 doppelt, übersprungen')).toBeVisible();
+  await page.getByTestId('import-confirm').click();
+  await expect(page.getByTestId('import-result')).toContainText('0 Karten importiert');
+  await expect(page.getByTestId('import-result')).toContainText('2 doppelte Karten übersprungen');
+  await page.getByRole('button', { name: 'Fertig' }).click();
   await expect(rows(page)).toHaveCount(2);
   expect(problems).toEqual([]);
 });
