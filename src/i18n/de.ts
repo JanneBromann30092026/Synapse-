@@ -519,6 +519,62 @@ export const de = {
     dotLabel: (level: string) => `Beherrschungsgrad: ${level}`,
     segment: (level: string, n: number) => `${level}: ${n}`,
   },
+  onboarding: {
+    label: 'Willkommen bei Synapse',
+    skip: 'Überspringen',
+    progress: 'Fortschritt',
+    back: 'Zurück',
+    next: 'Weiter',
+    step: (current: number, total: number) => `Schritt ${current} von ${total}`,
+    welcome: {
+      title: 'Willkommen bei Synapse',
+      text: 'Karteikarten lernen – ruhig, schnell und komplett auf deinem iPad.',
+      features: [
+        {
+          title: 'Karten in Projekten',
+          text: 'Sammle Begriffe, Vokabeln und Fakten nach Themen.',
+        },
+        {
+          title: 'Antworten tippen',
+          text: 'Synapse prüft deine Antwort und zeigt dir sofort, ob sie sitzt.',
+        },
+        {
+          title: 'Dein Wissensgehirn',
+          text: 'Ähnliche Karten verbinden sich – auch über Projekte hinweg.',
+        },
+      ],
+    },
+    install: {
+      title: 'Zum Home-Bildschirm hinzufügen',
+      text: 'Als Homescreen-App startet Synapse im Vollbild, läuft offline und Safari löscht deine Daten nicht.',
+      steps: [
+        'Tippe in Safari oben auf das Teilen-Symbol.',
+        'Wähle „Zum Home-Bildschirm“.',
+        'Tippe auf „Hinzufügen“ und öffne Synapse über das neue Symbol.',
+      ],
+      later: 'Du kannst das auch später machen – deine Karten bleiben erhalten.',
+    },
+    ai: {
+      title: 'KI-Bewertung (optional)',
+      text: 'Synapse prüft deine Antworten kostenlos auf dem Gerät. Mit einem eigenen Anthropic-API-Key bewertet zusätzlich eine KI Umschreibungen und Synonyme – das kostet ein paar Cent.',
+      keyLabel: 'API-Key',
+      save: 'Key speichern',
+      saved: 'Key hinterlegt – die KI-Bewertung ist an.',
+      skipHint:
+        'Kein Key? Kein Problem – überspring diesen Schritt einfach. Du findest ihn später in den Einstellungen.',
+    },
+    start: {
+      title: 'Wie möchtest du starten?',
+      text: 'Probier Synapse mit Beispielprojekten aus oder leg direkt mit deinen eigenen Karten los.',
+      demo: 'Demo-Projekte laden',
+      demoHint: 'Japanisch, BWL und Aktien – jederzeit wieder löschbar.',
+      empty: 'Leer starten',
+      emptyHint: 'Du legst dein erstes Projekt selbst an.',
+      demoLoaded: (projects: number, cards: number) =>
+        `${projects} Projekte mit ${cards} Karten geladen`,
+      demoFailed: 'Die Demo-Projekte konnten nicht geladen werden.',
+    },
+  },
   transfer: {
     import: 'Importieren',
     export: 'Exportieren',
@@ -790,6 +846,19 @@ export const de = {
       title: 'Datenschutz',
       text: 'Alle Karten und Lernstände bleiben auf diesem Gerät. Nur bei aktiver KI-Bewertung werden Kartentext und deine Antwort zur Bewertung an Anthropic gesendet.',
     },
+    errorLog: {
+      title: 'Fehlerprotokoll',
+      text: 'Synapse merkt sich die letzten 200 Fehler auf diesem Gerät – ohne API-Key und ohne vollständige Karteninhalte. Wenn etwas hakt, kopiere das Protokoll und schick es mit.',
+      count: (n: number) => (n === 1 ? '1 Eintrag' : `${n} Einträge`),
+      empty: 'Keine Einträge – alles läuft rund.',
+      copy: 'Fehlerprotokoll kopieren',
+      copied: 'Fehlerprotokoll kopiert',
+      clear: 'Leeren',
+      cleared: 'Fehlerprotokoll geleert',
+      fallbackTitle: 'Fehlerprotokoll',
+      fallbackText: 'Kopieren hat nicht geklappt. Markiere den Text und kopiere ihn von Hand.',
+      close: 'Schließen',
+    },
     about: 'Über Synapse',
     developer: 'Entwickler',
     devMode: 'Entwicklermodus',
@@ -1027,6 +1096,51 @@ export const de = {
   },
   hotkeys: {
     searchSoon: 'Die Schnellsuche (⌘K) folgt in einem späteren Schritt.',
+  },
+  shortcuts: {
+    title: 'Tastaturkürzel',
+    description: 'Für eine angeschlossene Tastatur. Tippe ? für diese Übersicht.',
+    open: 'Tastaturkürzel anzeigen',
+    close: 'Schließen',
+    groups: [
+      {
+        title: 'Überall',
+        items: [
+          { keys: ['?'], label: 'Diese Übersicht' },
+          { keys: ['Tab', '⇧ Tab'], label: 'Zum nächsten / vorigen Element' },
+          { keys: ['Esc'], label: 'Dialog oder Menü schließen' },
+        ],
+      },
+      {
+        title: 'Projekte & Karten',
+        items: [
+          { keys: ['N'], label: 'Neue Karte (Projektseite)' },
+          { keys: ['↩'], label: 'Vorderseite: weiter zur Rückseite' },
+          { keys: ['⌘ ↩'], label: 'Karte speichern' },
+          { keys: ['⇧ ↩'], label: 'Zeilenumbruch' },
+        ],
+      },
+      {
+        title: 'Lernen',
+        items: [
+          { keys: ['↩'], label: 'Antwort prüfen / nächste Karte' },
+          { keys: ['R', '→'], label: 'Selbst bewerten: richtig' },
+          { keys: ['F', '←'], label: 'Selbst bewerten: falsch' },
+          { keys: ['O'], label: 'Bewertung umkehren' },
+          { keys: ['1', '2', '3'], label: 'Rundenende: Falsche / Richtige / Alle wiederholen' },
+          { keys: ['Esc'], label: 'Runde beenden' },
+        ],
+      },
+      {
+        title: 'Gehirn',
+        items: [
+          { keys: ['⌘ K'], label: 'Karte suchen' },
+          { keys: ['F'], label: 'Alles einpassen' },
+          { keys: ['← ↑ → ↓'], label: 'Zur nächsten verbundenen Karte' },
+          { keys: ['Esc'], label: 'Auswahl aufheben' },
+        ],
+      },
+    ],
   },
   database: {
     errors: {

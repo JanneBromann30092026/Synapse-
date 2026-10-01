@@ -89,7 +89,8 @@ export function ActivityHeatmap({ byDay, today, weeks = 16 }: ActivityHeatmapPro
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ ...spring.default, delay: week * 0.025 }}
                 className={cn(
-                  'focus-ring no-callout aspect-square w-full rounded-[30%]',
+                  // The hit area covers the gap as well (dense grid, ~43 px pitch on the iPad).
+                  'focus-ring no-callout relative aspect-square w-full rounded-[30%] before:absolute before:-inset-[3px] before:content-[""]',
                   LEVEL_BG[cell.level],
                   cell.date === today && 'ring-2 ring-accent/60 ring-offset-1 ring-offset-surface',
                   current?.date === cell.date && 'ring-2 ring-fg ring-offset-2 ring-offset-surface',

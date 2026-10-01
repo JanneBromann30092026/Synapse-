@@ -5,7 +5,7 @@
 import { mkdirSync } from 'node:fs';
 import { chromium, type BrowserContextOptions, type Page } from '@playwright/test';
 import { preview } from 'vite';
-import { IPAD_LANDSCAPE, IPAD_PORTRAIT, PREVIEW_URL } from './ipad.ts';
+import { IPAD_LANDSCAPE, IPAD_PORTRAIT, PREVIEW_URL, SKIP_ONBOARDING_STATE } from './ipad.ts';
 
 interface Shot {
   /** Hash route, e.g. "/projects". */
@@ -532,7 +532,7 @@ async function brainOverview(page: Page) {
   await setBrainEmbedder(page, 'Test ohne Download');
   await page
     .getByTestId('brain-settings-status')
-    .filter({ hasText: /^90 von 90 .* [1-9]\d* Verbindungen$/ })
+    .filter({ hasText: /^(\d+) von \1 Karten analysiert · [1-9]\d* Verbindungen$/ })
     .waitFor({ timeout: 30_000 });
   await page.goto(`${PREVIEW_URL}#/brain`);
   await page.getByTestId('brain-graph').waitFor();
@@ -734,6 +734,25 @@ async function settingsBrain(page: Page) {
   await page.getByTestId('settings-brain').evaluate((element) => {
     element.scrollIntoView({ block: 'start' });
   });
+}
+
+async function settingsErrorLog(page: Page) {
+  // Earlier shots provoke errors on purpose (failing AI, blocked download): start empty,
+  // then one example entry so the count is visible.
+  const clear = page.getByRole('button', { name: 'Leeren' });
+  if (await clear.isEnabled()) await clear.click();
+  await page.getByTestId('error-log-count').filter({ hasText: 'Keine Einträge' }).waitFor();
+  await page.evaluate(() => console.error('Beispielfehler für den Screenshot'));
+  await page.getByTestId('error-log-count').filter({ hasText: /Eintr/ }).waitFor();
+  await page.getByTestId('settings-error-log').evaluate((element) => {
+    element.scrollIntoView({ block: 'center' });
+  });
+}
+
+async function shortcuts(page: Page) {
+  await page.getByRole('heading', { level: 1 }).first().waitFor();
+  await page.keyboard.press('Shift+?');
+  await page.getByTestId('shortcuts').waitFor();
 }
 
 // --- Import, export & backups (step 15) -------------------------------------
@@ -993,6 +1012,8 @@ const SHOTS: Shot[] = [
   { route: '/projects', name: 'transfer-drop', prepare: dropOverlay },
   { route: '/settings', name: 'transfer-backups', prepare: backupSettings },
   { route: '/settings', name: 'transfer-restore', prepare: restoreConfirm },
+  { route: '/settings', name: 'error-log', prepare: settingsErrorLog },
+  { route: '/projects', name: 'shortcuts', prepare: shortcuts },
 ];
 
 const VARIANTS: { name: string; options: BrowserContextOptions }[] = [
@@ -1014,12 +1035,31 @@ async function capture(page: Page, name: string) {
   console.log(`✓ ${file}`);
 }
 
+/** First start (empty storage): every step of the welcome. */
+async function captureOnboarding(variant: (typeof VARIANTS)[number]) {
+  const context = await browser.newContext({ ...variant.options, serviceWorkers: 'block' });
+  const page = await context.newPage();
+  await page.goto(PREVIEW_URL, { waitUntil: 'networkidle' });
+  for (const step of ['welcome', 'install', 'ai', 'start']) {
+    await page.getByTestId(`onboarding-step-${step}`).waitFor();
+    await page.waitForTimeout(700);
+    await capture(page, `onboarding-${step}-${variant.name}`);
+    if (step !== 'start') await page.getByTestId('onboarding-next').click();
+  }
+  await context.close();
+}
+
 const server = await preview();
 const browser = await chromium.launch();
 try {
   for (const variant of VARIANTS) {
+    if (!ONLY || 'onboarding'.startsWith(ONLY) || ONLY.startsWith('onboarding')) {
+      await captureOnboarding(variant);
+    }
+    if (ONLY?.startsWith('onboarding')) continue;
     const context = await browser.newContext({
       ...variant.options,
+      storageState: SKIP_ONBOARDING_STATE,
       // Keep screenshots free of the "offline ready" toast.
       serviceWorkers: 'block',
     });

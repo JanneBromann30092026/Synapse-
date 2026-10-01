@@ -45,8 +45,25 @@ async function openBrain(page: Page) {
   await page.waitForTimeout(300);
 }
 
-/** Screen point of a node or link (developer hook + canvas offset). */
+/**
+ * Screen point of a node or link (developer hook + canvas offset). Waits until the layout
+ * is at rest: links computed in the background can make the graph settle once more.
+ */
 async function screenOf(page: Page, kind: 'node' | 'link', id: string) {
+  let previous = '';
+  await expect
+    .poll(async () => {
+      const current = JSON.stringify(await rawScreenOf(page, kind, id));
+      const idle = await page.evaluate(() => window.__synapseBrain?.engineRunning() === false);
+      const stable = idle && current === previous;
+      previous = current;
+      return stable;
+    })
+    .toBe(true);
+  return rawScreenOf(page, kind, id);
+}
+
+async function rawScreenOf(page: Page, kind: 'node' | 'link', id: string) {
   const canvas = await page.getByTestId('brain-graph').boundingBox();
   const point = await page.evaluate(
     ([k, i]) =>
@@ -74,6 +91,60 @@ async function hubCard(page: Page): Promise<string> {
   });
   if (!id) throw new Error('no cross-project link');
   return id;
+}
+
+/** Cross-project link whose middle lies farthest from any node (a tap there must not hit a node). */
+async function clearCrossLink(page: Page): Promise<string> {
+  const id = await page.evaluate(() => {
+    const brain = window.__synapseBrain;
+    if (!brain) return '';
+    const nodes = brain.nodeIds().flatMap((n) => {
+      const p = brain.nodeScreen(n);
+      return p ? [p] : [];
+    });
+    let best = { id: '', clearance: 0 };
+    for (const link of brain.cardLinks().filter((l) => l.cross)) {
+      const mid = brain.linkScreen(link.id);
+      if (!mid) continue;
+      const clearance = Math.min(...nodes.map((n) => Math.hypot(n.x - mid.x, n.y - mid.y)));
+      if (clearance > best.clearance) best = { id: link.id, clearance };
+    }
+    return best.clearance > 20 ? best.id : '';
+  });
+  if (!id) throw new Error('no cross-project link clear of nodes');
+  return id;
+}
+
+/** Waits until the brain filter is stored, so a reload cannot drop the last change. */
+async function waitForStoredFilter(page: Page, hidden: number, crossOnly: boolean) {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          new Promise<{ hidden: number; crossOnly: boolean } | null>((resolve) => {
+            const open = indexedDB.open('synapse');
+            open.onsuccess = () => {
+              const request = open.result
+                .transaction('settings')
+                .objectStore('settings')
+                .get('brainFilter');
+              request.onsuccess = () => {
+                const value = (
+                  request.result as
+                    { value: { hiddenProjects: string[]; crossOnly: boolean } } | undefined
+                )?.value;
+                resolve(
+                  value
+                    ? { hidden: value.hiddenProjects.length, crossOnly: value.crossOnly }
+                    : null,
+                );
+                open.result.close();
+              };
+            };
+          }),
+      ),
+    )
+    .toEqual({ hidden, crossOnly });
 }
 
 function manualLinks(page: Page): Promise<number> {
@@ -123,11 +194,11 @@ test('brain: focus mode, panel, manual link, link popover, hub, keyboard', async
   let moved = false;
   for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) {
     await page.keyboard.press(key);
-    await page.waitForTimeout(150);
-    if ((await panel.getByRole('heading', { level: 2 }).textContent()) !== before) {
-      moved = true;
-      break;
-    }
+    moved = await expect(panel.getByRole('heading', { level: 2 }))
+      .not.toHaveText(before ?? '', { timeout: 1000 })
+      .then(() => true)
+      .catch(() => false);
+    if (moved) break;
   }
   expect(moved).toBe(true);
 
@@ -273,6 +344,7 @@ test('brain: filter is saved, neighborhood round, explanation with mocked AI', a
   const visibleLinks = await page.evaluate(() => window.__synapseBrain?.cardLinks() ?? []);
   expect(visibleLinks.length).toBeGreaterThan(0);
   expect(visibleLinks.every((l) => l.cross)).toBe(true);
+  await waitForStoredFilter(page, 1, true);
   await page.reload();
   await openBrain(page);
   await expect(page.getByTestId('brain-filter-count')).toHaveText('2');
@@ -281,9 +353,7 @@ test('brain: filter is saved, neighborhood round, explanation with mocked AI', a
   ).toBe(true);
 
   // Cross-project link: explanation via the (mocked) AI, then cached.
-  const link = await page.evaluate(
-    () => window.__synapseBrain?.cardLinks().find((l) => l.cross)?.id ?? '',
-  );
+  const link = await clearCrossLink(page);
   let point = await screenOf(page, 'link', link);
   await page.mouse.click(point.x, point.y);
   const popover = page.getByTestId('brain-link-popover');

@@ -49,3 +49,4 @@ export {
   type ImportFileResult,
   type SnapshotInfo,
 } from './backupRepo';
+export { logsRepo, type NewLogEntry } from './logsRepo';

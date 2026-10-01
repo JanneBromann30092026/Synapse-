@@ -42,6 +42,8 @@ const schemas = {
     levels: z.array(z.enum(MASTERY_LEVELS)),
     hideUnlearned: z.boolean(),
   }),
+  /** First-start welcome finished or skipped (step 16). */
+  onboardingDone: z.boolean(),
   // Developer
   devMode: z.boolean(),
 };
@@ -64,6 +66,7 @@ export const SETTINGS_DEFAULTS: SettingsValues = {
   brainTopK: DEFAULT_LINK_OPTIONS.topK,
   brainEmbedder: 'model',
   brainFilter: DEFAULT_BRAIN_FILTER,
+  onboardingDone: false,
   devMode: false,
 };
 
@@ -114,6 +117,9 @@ async function loadSetting<K extends SettingKey>(key: K): Promise<SettingsValues
   return settingsRepo.get(key, SETTINGS_DEFAULTS[key], schema);
 }
 
+/** Keys set before load() finished; load() must not overwrite them with older values. */
+const changedWhileLoading = new Set<SettingKey>();
+
 /**
  * Central settings store: loaded from the settings table at startup, every change is
  * persisted immediately. Theme and reduced motion are mirrored to localStorage for a
@@ -128,12 +134,18 @@ export const useSettings = create<SettingsState>((setState, getState) => ({
     const values = await Promise.all(
       KEYS.map(async (key) => [key, await loadSetting(key)] as const),
     );
-    const loaded = Object.fromEntries(values) as SettingsValues;
+    // A change made while loading (a tap during a slow start) wins over the stored value.
+    const loaded = Object.fromEntries(
+      values.filter(([key]) => !changedWhileLoading.has(key)),
+    ) as Partial<SettingsValues>;
+    changedWhileLoading.clear();
     setState({ ...loaded, loaded: true });
-    writeBootPrefs({ theme: loaded.theme, reduceMotion: loaded.reduceMotion });
+    const { theme, reduceMotion } = getState();
+    writeBootPrefs({ theme, reduceMotion });
   },
   set: async (key, value) => {
     if (!isValidSetting(key, value)) return false;
+    if (!getState().loaded) changedWhileLoading.add(key);
     setState({ [key]: value } as Pick<SettingsValues, typeof key>);
     const { theme, reduceMotion } = getState();
     writeBootPrefs({ theme, reduceMotion });

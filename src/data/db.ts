@@ -9,6 +9,7 @@ import type {
   GradingStrictness,
   GraphPosition,
   LinkExplanation,
+  LogEntry,
   Project,
   Secret,
   Setting,
@@ -34,6 +35,7 @@ export class SynapseDb extends Dexie {
   secrets!: EntityTable<Secret, 'key'>;
   linkExplanations!: Table<LinkExplanation, [string, string]>;
   snapshots!: EntityTable<Snapshot, 'id'>;
+  logs!: EntityTable<LogEntry, 'id'>;
 
   constructor(name = DB_NAME) {
     super(name);
@@ -64,6 +66,11 @@ export class SynapseDb extends Dexie {
     // Step 15: automatic backup snapshots inside the app (new table, no data to migrate).
     this.version(3).stores({
       snapshots: 'id, createdAt',
+    });
+
+    // Step 16: local error log (last LOG_LIMIT entries, new table, no data to migrate).
+    this.version(4).stores({
+      logs: 'id, at',
     });
   }
 }

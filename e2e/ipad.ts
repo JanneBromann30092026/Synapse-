@@ -24,3 +24,17 @@ export const IPAD_PORTRAIT = {
   ...IPAD_BASE,
   viewport: { width: 820, height: 1180 },
 } satisfies BrowserContextOptions;
+
+/**
+ * Storage state that marks the first-start welcome as done (src/features/onboarding). Every
+ * test starts with it; e2e/onboarding.spec.ts and the onboarding screenshots start empty.
+ */
+export const SKIP_ONBOARDING_STATE = {
+  cookies: [],
+  origins: [
+    {
+      origin: `http://localhost:${PREVIEW_PORT}`,
+      localStorage: [{ name: 'synapse.onboardingDone', value: '1' }],
+    },
+  ],
+};

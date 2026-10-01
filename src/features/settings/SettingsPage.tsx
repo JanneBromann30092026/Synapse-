@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react';
 import { motion } from 'motion/react';
-import { Check, ShieldCheck } from 'lucide-react';
-import { SegmentedControl, Surface, Toggle } from '@/components/ui';
+import { Check, Keyboard, ShieldCheck } from 'lucide-react';
+import { Button, SegmentedControl, Surface, Toggle } from '@/components/ui';
+import { useShortcutsHelp } from '@/app/shortcuts/shortcutsStore';
 import { Page } from '@/app/shell/Page';
 import { de } from '@/i18n/de';
 import { BackupSettings } from '@/features/transfer/BackupSettings';
 import { AiSettings } from './AiSettings';
 import { BrainSettings } from './BrainSettings';
+import { ErrorLogSettings } from './ErrorLogSettings';
 import { LearningSettings } from './LearningSettings';
 import { THEME_PREFERENCES, useSettings } from './settingsStore';
 import { AboutInfo, StorageInfo } from './SystemStatus';
@@ -78,6 +80,19 @@ export function SettingsPage() {
               checked={reduceMotion}
               onChange={(v) => void set('reduceMotion', v)}
             />
+            <div className="h-px bg-line" />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="text-base text-fg">{de.shortcuts.title}</span>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={Keyboard}
+                onClick={() => useShortcutsHelp.getState().setOpen(true)}
+                data-testid="open-shortcuts"
+              >
+                {de.shortcuts.open}
+              </Button>
+            </div>
           </div>
         </Section>
 
@@ -106,6 +121,10 @@ export function SettingsPage() {
             <ShieldCheck size={22} aria-hidden className="mt-0.5 shrink-0 text-success" />
             {t.privacy.text}
           </p>
+        </Section>
+
+        <Section title={t.errorLog.title} testId="settings-error-log">
+          <ErrorLogSettings />
         </Section>
 
         <Section title={t.about}>

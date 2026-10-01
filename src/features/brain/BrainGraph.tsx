@@ -560,6 +560,7 @@ export default function BrainGraph({
         if (!node || !fg || node.x === undefined || node.y === undefined) return null;
         return fg.graph2ScreenCoords(node.x, node.y);
       },
+      nodeIds: () => visible.nodes.map((n) => n.id),
       zoom: () => fgRef.current?.zoom() ?? 0,
       linkScreen: (id) => {
         const link = visible.links.find((l) => l.id === id);

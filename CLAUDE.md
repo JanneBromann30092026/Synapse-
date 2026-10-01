@@ -86,7 +86,7 @@ Touch-first (iPad):
 - [x] 13 Gehirn – Visualisierung
 - [x] 14 Gehirn – Interaktion
 - [x] 15 Import, Export & Backups
-- [ ] 16 Feinschliff & Installation
+- [x] 16 Feinschliff & Installation
 
 ## Entscheidungen & Notizen
 - Ursprünglich als Electron-Desktop-App geplant; umgestellt auf PWA, weil nur ein iPad zur Verfügung steht. Folgen: IndexedDB statt SQLite, kein Main-Prozess/IPC, KI-Aufruf direkt aus dem Browser, kein Ollama, Backups als Export statt Dateikopie.
@@ -199,3 +199,15 @@ Touch-first (iPad):
 - Erinnerung (`BackupReminder` auf der Startseite): letztes exportiertes Backup ≥ 7 Tage alt bzw. noch nie exportiert und älteste Karte ≥ 7 Tage alt; „Später“ = 3 Tage Ruhe (`backup.reminderSnoozedUntil`).
 - Projektseite zeigt höchstens 300 Karten auf einmal („Weitere anzeigen“), sonst wird sie nach großen Importen träge.
 - E2E `e2e/transfer.spec.ts`: Zuordnung/Trennzeichen, echte VWL-Datei (nur in der Cloud-Sitzung vorhanden, sonst übersprungen), Einfügen, JSON-Export/-Import mit Konflikt, kaputte Dateien, Drag & Drop, 10.000 Zeilen, Backup/Snapshot/Wiederherstellen/Erinnerung (Teilen-API gemockt), Wiederherstellen aus Datei. Achtung in Tests: Startseite und Projektseite haben beide ein `import-file`-Feld – nach Navigation erst auf die Überschrift warten. Screenshots `transfer-*`.
+- Schritt 16 (Feinschliff): Onboarding (`src/features/onboarding/`, lazy) erscheint nur, wenn settings `onboardingDone` fehlt, kein localStorage-Spiegel `synapse.onboardingDone` gesetzt ist und es keine Projekte gibt (Geräte mit Daten überspringen es still). Schritte: Willkommen → Home-Bildschirm (nur im Browser-Tab) → API-Key (optional, schaltet KI an) → Demo-Projekte oder leer. Playwright startet jeden Test mit `SKIP_ONBOARDING_STATE` (e2e/ipad.ts); `e2e/polish.spec.ts` und die Onboarding-Screenshots starten leer.
+- Fehlerprotokoll: Datenbank Version 4, Tabelle `logs` (nicht in Export/Backup, Wiederherstellen lässt sie stehen) (`logsRepo`, max. 200, älteste fliegen raus). `src/services/errorLog.ts` fängt window-`error`, `unhandledrejection`, `console.error`/`warn` (Konsole bleibt unverändert), puffert bis die DB offen ist, schreibt seriell, gleiche Meldung höchstens alle 2 s. `src/core/errorLog.ts` entfernt `sk-ant-…`/Auth-Header, kürzt lange Zitate (Karteninhalte) und Meldungen (200 Zeichen), loggt von Objekten nur „[Objekt]“. Kopieren per `ClipboardItem` mit Promise (Safari verlangt die Geste), sonst Textfeld zum Markieren.
+- Kürzelübersicht: `?` überall außerhalb von Textfeldern (`src/app/shortcuts/`), zusätzlich Button in Einstellungen → Darstellung. Texte in `de.shortcuts` – neue Kürzel dort nachtragen.
+- Icon: `public/icons/favicon.svg` (Netzwerk aus Kreisen in Akzent-Violett auf dunklem Verlauf). `npm run icons` erzeugt PNGs und 36 iOS-Startbilder (`public/splash/`, 9 iPad-Größen × Hoch/Quer × Dark/Light, Liste in `scripts/splashScreens.ts`); die `<link rel="apple-touch-startup-image">` setzt `splashPlugin` in vite.config.ts. Startbilder sind vom Precache ausgenommen (iOS lädt sie bei der Installation selbst). Ob iOS `prefers-color-scheme` in der media-Abfrage beachtet, ist ungeprüft (auf dem iPad testen).
+- Code-Splitting: Gehirn- und Statistikseite per `React.lazy`, Onboarding, Demo-Daten und der Import-Dialog (`LazyImportDialog`, ab der ersten Nutzung gemountet) ebenfalls. Worker werden ohnehin erst bei Bedarf erzeugt.
+- CSP: `z.config({ jitless: true })` in `src/zodConfig.ts` – sonst probt zod beim Anlegen jedes Objektschemas `new Function` und Chrome meldet eine CSP-Verletzung (Lighthouse „Issues“). Die Datei liegt per codeSplitting-Gruppe im `data`-Chunk, weil gemeinsame App-Chunks schon beim Laden Schemas anlegen.
+- Kontrast: `--fg-muted` auf WCAG AA angehoben (hell #687083, dunkel #7e8597, ≥ 4,5:1 auf Fläche und Hintergrund).
+- Lighthouse 13 (kein PWA-Bereich mehr) mit Playwright-Chromium, mobil 820×1180: Accessibility 100, Best Practices 100, Performance ~80 unter simulierter 4G-Drosselung – auf dem iPad kommt alles aus dem Service-Worker-Cache. Offener Hinweis „label-content-name-mismatch“ bei Schaltern mit Beschreibung: Name = Beschriftung, Beschreibung per aria-describedby (WCAG 2.5.3 erfüllt, Beschriftung steht vorn).
+- Skeletons mit Shimmer (`.skeleton` in global.css, Token `--shimmer`), aus bei reduzierter Bewegung.
+- Tippflächen: Tag-Filter auf 44 px. Ausnahme Heatmap: Zellen ~37 px, die Trefferfläche reicht per `::before` über die Lücke (~43 px Raster).
+- Gesamtdurchlauf `e2e/journey.spec.ts`: leerer Speicher → Onboarding → Projekt + Karten → Lernen (lokal + gemockte KI) → Falsche wiederholen → Statistik → Gehirn (Test-Embedder) → JSON-Export → Import als neues Projekt.
+- Settings-Store: Änderungen, die vor dem Ende von `load()` passieren (Tipp während eines langsamen Starts), werden vom Laden nicht mehr überschrieben (`changedWhileLoading`). Fiel in der vollen E2E-Suite unter Last auf (Entwicklermodus-Schalter direkt nach dem Öffnen).

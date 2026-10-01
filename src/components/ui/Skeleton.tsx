@@ -1,14 +1,6 @@
 import { cn } from './cn';
 
-/** Placeholder block while content loads. */
+/** Placeholder block while content loads, with a soft shimmer (off with reduced motion). */
 export function Skeleton({ className }: { className?: string }) {
-  return (
-    <div
-      aria-hidden
-      className={cn(
-        'animate-pulse rounded-lg bg-line-strong/60 motion-reduce:animate-none',
-        className,
-      )}
-    />
-  );
+  return <div aria-hidden className={cn('skeleton rounded-lg', className)} />;
 }

@@ -17,6 +17,7 @@ declare global {
       nodes: number;
       links: number;
       nodeScreen: (id: string) => { x: number; y: number } | null;
+      nodeIds: () => string[];
       zoom: () => number;
       linkScreen: (id: string) => { x: number; y: number } | null;
       cardLinks: () => { id: string; kind: string; cross: boolean; a: string; b: string }[];

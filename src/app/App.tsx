@@ -2,9 +2,11 @@ import { useEffect } from 'react';
 import { HashRouter } from 'react-router';
 import { MotionConfig } from 'motion/react';
 import { Toaster } from '@/components/ui';
+import { OnboardingGate } from '@/features/onboarding/OnboardingGate';
 import { useSettings } from '@/features/settings/settingsStore';
 import { startBrainBackgroundSync } from '@/services/brain';
 import { runAutoSnapshot } from '@/services/transfer/backups';
+import { markErrorLogReady } from '@/services/errorLog';
 import { Background } from './Background';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Shell } from './shell/Shell';
@@ -20,6 +22,7 @@ function useStartup() {
       await init();
       if (!useAppStatus.getState().database?.ok) return;
       await loadSettings();
+      await markErrorLogReady();
       // At most once a day, a snapshot of all data inside the app.
       await runAutoSnapshot();
     })();
@@ -56,6 +59,7 @@ export function App() {
         <HashRouter>
           <Background />
           <Shell />
+          <OnboardingGate />
           <Toaster />
           <UpdatePrompt />
         </HashRouter>

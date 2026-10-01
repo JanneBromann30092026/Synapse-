@@ -11,7 +11,7 @@ export interface Hotkey {
 
 const IS_APPLE = /Mac|iPhone|iPad|iPod/.test(globalThis.navigator?.userAgent ?? '');
 
-function isTextField(target: EventTarget | null): boolean {
+export function isTextField(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
   if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;

@@ -212,3 +212,45 @@
   position: absolute;
   pointer-events: none;
 }
+
+/* Skeleton placeholders (src/components/ui/Skeleton.tsx): a soft light sweep. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--border-strong);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent 0%, var(--shimmer) 50%, transparent 100%);
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+    display: none;
+  }
+}
+
+:root[data-reduce-motion] .skeleton::after {
+  animation: none;
+  display: none;
+}
+
+/* First-start welcome (src/features/onboarding): soft accent light behind the card. */
+.onboarding-glow {
+  background:
+    radial-gradient(40% 35% at 30% 30%, var(--accent-glow), transparent 70%),
+    radial-gradient(35% 30% at 75% 75%, var(--accent-soft), transparent 70%);
+  opacity: 0.6;
+}

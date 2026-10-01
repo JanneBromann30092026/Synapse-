@@ -56,6 +56,8 @@ export interface BrainDebug {
   links: number;
   /** Screen position (relative to the canvas) of a node, e.g. to drag it in tests. */
   nodeScreen: (id: string) => { x: number; y: number } | null;
+  /** IDs of the visible nodes (cards and hubs). */
+  nodeIds: () => string[];
   zoom: () => number;
   /** Screen position of the middle of a visible link (on the curve for cross-project links). */
   linkScreen: (id: string) => { x: number; y: number } | null;
