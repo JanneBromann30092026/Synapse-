@@ -3,7 +3,9 @@ import { animate, motion, useMotionValue, useTransform } from 'motion/react';
 import { Check, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { Badge, cn, IconButton, type MenuAnchor } from '@/components/ui';
 import { parseAnswers } from '@/core/cards';
+import type { Mastery } from '@/core/mastery';
 import type { Card } from '@/data/types';
+import { MasteryDot } from '@/features/stats/MasteryDot';
 import { de } from '@/i18n/de';
 import { spring } from '@/styles/motion';
 
@@ -29,6 +31,8 @@ interface Gesture {
 
 export interface CardRowProps {
   card: Card;
+  /** Lasting mastery of the card (dot); undefined while loading. */
+  mastery?: Mastery;
   selecting: boolean;
   selected: boolean;
   swipeOpen: boolean;
@@ -42,6 +46,7 @@ export interface CardRowProps {
 /** List row: tap edits, swipe left reveals edit/delete, "⋯" opens the same actions. */
 export function CardRow({
   card,
+  mastery,
   selecting,
   selected,
   swipeOpen,
@@ -225,6 +230,7 @@ export function CardRow({
             </span>
           )}
         </button>
+        {mastery && !selecting && <MasteryDot mastery={mastery} />}
         {!selecting && (
           <IconButton
             icon={MoreHorizontal}

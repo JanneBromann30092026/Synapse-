@@ -3,7 +3,9 @@ import { motion } from 'motion/react';
 import { Check, MoreHorizontal } from 'lucide-react';
 import { cn, IconButton, projectColor, type MenuAnchor } from '@/components/ui';
 import { parseAnswers } from '@/core/cards';
+import type { Mastery } from '@/core/mastery';
 import type { Card, ProjectColor } from '@/data/types';
+import { MasteryDot } from '@/features/stats/MasteryDot';
 import { de } from '@/i18n/de';
 import { spring, TAP_SCALE } from '@/styles/motion';
 
@@ -11,6 +13,8 @@ const t = de.pages.project;
 
 export interface CardTileProps {
   card: Card;
+  /** Lasting mastery of the card (dot); undefined while loading. */
+  mastery?: Mastery;
   color: ProjectColor;
   selecting: boolean;
   selected: boolean;
@@ -24,6 +28,7 @@ const face =
 /** Small flashcard in the grid: tap flips it in 3D (a preview of study mode). */
 export function CardTile({
   card,
+  mastery,
   color,
   selecting,
   selected,
@@ -98,6 +103,9 @@ export function CardTile({
           </span>
         )}
       </motion.button>
+      {!selecting && mastery && !flipped && (
+        <MasteryDot mastery={mastery} className="absolute top-1 left-1" />
+      )}
       {!selecting && (
         <IconButton
           icon={MoreHorizontal}

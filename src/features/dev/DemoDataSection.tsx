@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Plus, Sparkles } from 'lucide-react';
+import { History, Plus, Sparkles } from 'lucide-react';
 import { Button, Surface, toast } from '@/components/ui';
 import { useLiveData } from '@/data/live';
-import { projectsRepo } from '@/data/repositories';
+import { cardsRepo, projectsRepo } from '@/data/repositories';
 import { PROJECT_COLORS } from '@/data/types';
 import { de } from '@/i18n/de';
 import { loadDemoData } from './demoData';
+import { loadSimulatedHistory } from './historyData';
 
 const t = de.dev;
 
@@ -21,6 +22,23 @@ export function DemoDataSection() {
     try {
       const result = await loadDemoData();
       toast.success(t.demoDataLoaded(result.projects, result.cards));
+    } catch {
+      setFailed(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function simulateHistory() {
+    setSaving(true);
+    setFailed(false);
+    try {
+      const projects = await projectsRepo.list();
+      const cards = (
+        await Promise.all(projects.map((project) => cardsRepo.listByProject(project.id)))
+      ).flat();
+      const result = await loadSimulatedHistory(cards);
+      toast.success(t.historySimulated(result.sessions, result.answers));
     } catch {
       setFailed(true);
     } finally {
@@ -58,7 +76,7 @@ export function DemoDataSection() {
             </span>
           </span>
           <span className={failed ? 'text-sm text-danger' : 'text-sm text-fg-muted'}>
-            {failed ? t.saveFailed : t.demoDataHint}
+            {failed ? t.saveFailed : `${t.demoDataHint} ${t.simulateHistoryHint}`}
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -69,6 +87,14 @@ export function DemoDataSection() {
             onClick={() => void loadDemo()}
           >
             {t.loadDemoData}
+          </Button>
+          <Button
+            icon={History}
+            variant="secondary"
+            disabled={saving}
+            onClick={() => void simulateHistory()}
+          >
+            {t.simulateHistory}
           </Button>
           <Button icon={Plus} loading={saving} onClick={() => void createTestProject()}>
             {t.createTestProject}

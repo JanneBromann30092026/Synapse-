@@ -24,6 +24,8 @@ async function enableDevModeWithDemoData(page: Page) {
   await page.goto(`${PREVIEW_URL}#/dev/ui`);
   await page.getByRole('button', { name: 'Demo-Daten laden' }).click();
   await page.getByTestId('project-count').filter({ hasText: '3' }).waitFor();
+  // The cards of the last project are written after the project itself.
+  await page.getByText(/Projekte mit \d+ Karten angelegt|schon vorhanden/).waitFor();
 }
 
 const openProject = (name: string) => async (page: Page) => {
@@ -455,10 +457,59 @@ async function projectLastRound(page: Page) {
   await page.getByTestId('last-round').waitFor();
 }
 
+/** Simulated study history (developer tools), once per browser context. */
+const withHistory = new WeakSet<Page>();
+
+async function ensureHistory(page: Page) {
+  if (withHistory.has(page)) return;
+  await page.goto(`${PREVIEW_URL}#/dev/ui`);
+  await page.getByRole('button', { name: 'Lernverlauf simulieren' }).click();
+  await page.getByText(/Runden mit \d+ Antworten erzeugt/).waitFor();
+  withHistory.add(page);
+  // Reload: no toast in the following screenshots.
+  await page.reload();
+}
+
+async function openStats(page: Page) {
+  await ensureHistory(page);
+  await page.goto(`${PREVIEW_URL}#/stats`);
+  await page.getByTestId('stats-page').waitFor();
+  await page.waitForTimeout(900);
+}
+
+async function statsDay(page: Page) {
+  await openStats(page);
+  await page.getByTestId('activity-heatmap').scrollIntoViewIfNeeded();
+  const busiest = page.locator('[data-testid="activity-heatmap"] button[data-count]');
+  const counts = await busiest.evaluateAll((cells) =>
+    cells.map((cell) => Number(cell.getAttribute('data-count'))),
+  );
+  await busiest.nth(counts.lastIndexOf(Math.max(...counts))).click();
+}
+
+async function statsHardestRound(page: Page) {
+  await setAiProvider(page, 'Aus');
+  await openStats(page);
+  await page.getByRole('button', { name: 'Diese Karten lernen' }).click();
+  await page.getByTestId('study-setup').waitFor();
+  await page.waitForTimeout(500);
+  await page.getByTestId('study-start').click();
+  await page.getByTestId('study-card').waitFor();
+  await page.waitForTimeout(700);
+}
+
+async function projectMastery(page: Page) {
+  await ensureHistory(page);
+  await page.goto(`${PREVIEW_URL}#/projects`);
+  await openProject('Japanisch Grundwortschatz')(page);
+  await page.getByTestId('mastery-dot').nth(1).click();
+}
+
 const SHOTS: Shot[] = [
   { route: '/settings', name: 'settings', scroll: true },
   { route: '/settings', name: 'settings-ai', prepare: settingsWithKey },
   { route: '/projects', name: 'projects-empty' },
+  { route: '/stats', name: 'stats-empty' },
   { route: '/dev/ui', name: 'dev-ui', prepare: enableDevModeWithDemoData },
   { route: '/dev/ui', name: 'dev-grading', prepare: gradingPlayground },
   { route: '/dev/ui', name: 'dev-session', prepare: sessionPlayground },
@@ -485,6 +536,10 @@ const SHOTS: Shot[] = [
   { route: '/projects', name: 'study-summary-list', prepare: studySummaryList },
   { route: '/projects', name: 'study-summary-perfect', prepare: studySummaryPerfect },
   { route: '/projects', name: 'study-summary-project', prepare: projectLastRound },
+  { route: '/stats', name: 'stats', prepare: openStats, scroll: true },
+  { route: '/stats', name: 'stats-day', prepare: statsDay },
+  { route: '/stats', name: 'stats-hardest-round', prepare: statsHardestRound },
+  { route: '/projects', name: 'project-mastery', prepare: projectMastery },
 ];
 
 const VARIANTS: { name: string; options: BrowserContextOptions }[] = [

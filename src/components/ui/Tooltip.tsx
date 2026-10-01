@@ -19,7 +19,13 @@ export function Tooltip({ content, children, showOnTap = false }: TooltipProps) 
   const id = useId();
   const [anchor, setAnchor] = useState<HTMLSpanElement | null>(null);
   const [visible, setVisible] = useState(false);
-  const longPress = useLongPress(() => setVisible(true));
+  /** Shown by hover or focus: a tap on the trigger then keeps it instead of toggling it off. */
+  const passive = useRef(false);
+  const show = (byTap: boolean) => {
+    passive.current = !byTap;
+    setVisible(true);
+  };
+  const longPress = useLongPress(() => show(true));
 
   useEffect(() => {
     if (!visible) return;
@@ -34,19 +40,21 @@ export function Tooltip({ content, children, showOnTap = false }: TooltipProps) 
         className="no-callout inline-flex"
         aria-describedby={visible ? id : undefined}
         {...longPress.handlers}
-        onPointerEnter={(event) => event.pointerType === 'mouse' && setVisible(true)}
+        onPointerEnter={(event) => event.pointerType === 'mouse' && show(false)}
         onPointerLeave={(event) => {
           longPress.handlers.onPointerLeave();
           if (event.pointerType === 'mouse') setVisible(false);
         }}
-        onFocus={() => setVisible(true)}
+        onFocus={() => show(false)}
         onBlur={() => setVisible(false)}
         onClickCapture={(event) => {
           if (longPress.didLongPress()) {
             event.preventDefault();
             event.stopPropagation();
           } else if (showOnTap) {
-            setVisible((v) => !v);
+            if (visible && passive.current) show(true);
+            else if (visible) setVisible(false);
+            else show(true);
           }
         }}
       >

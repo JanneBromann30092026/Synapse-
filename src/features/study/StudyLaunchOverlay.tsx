@@ -17,14 +17,14 @@ const expandTransition = { type: 'spring', stiffness: 210, damping: 30 } as cons
  * the animated routes, so it stays on screen while the pages change underneath.
  */
 export function StudyLaunchOverlay() {
-  const { stage, projectId, color } = useStudyLaunch();
+  const { stage, projectId, color, studyPath } = useStudyLaunch();
   const navigate = useNavigate();
   const navigated = useRef<string | null>(null);
 
   const goToStudy = () => {
     if (stage !== 'expanding' || !projectId || navigated.current === `study:${projectId}`) return;
     navigated.current = `study:${projectId}`;
-    void navigate(`/study/${projectId}`);
+    void navigate(studyPath);
   };
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export function StudyLaunchOverlay() {
       const timer = setTimeout(() => {
         if (navigated.current === `study:${projectId}`) return;
         navigated.current = `study:${projectId}`;
-        void navigate(`/study/${projectId}`);
+        void navigate(studyPath);
       }, MAX_EXPAND_MS);
       return () => clearTimeout(timer);
     }
@@ -45,7 +45,7 @@ export function StudyLaunchOverlay() {
       }, MAX_RETURN_MS);
       return () => clearTimeout(settle);
     }
-  }, [stage, projectId, navigate]);
+  }, [stage, projectId, studyPath, navigate]);
 
   const visible = stage !== 'idle' && projectId && color;
 

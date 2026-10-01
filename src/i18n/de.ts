@@ -177,6 +177,12 @@ export const de = {
       loading: 'Lernrunde wird vorbereitet …',
       notFound: 'Dieses Projekt gibt es nicht (mehr).',
       back: 'Zurück zum Projekt',
+      /** Round across projects (e.g. the hardest cards from the stats page). */
+      cross: {
+        title: 'Schwierigste Karten',
+        notFound: 'Diese Karten gibt es nicht mehr.',
+        back: 'Zurück zur Statistik',
+      },
       setup: {
         title: 'Lernrunde',
         cards: (n: number) => (n === 1 ? '1 Karte' : `${n} Karten`),
@@ -305,8 +311,62 @@ export const de = {
     stats: {
       title: 'Statistik',
       emptyTitle: 'Noch keine Statistik',
-      emptyText: 'Nach deinen ersten Lernrunden siehst du hier deinen Fortschritt.',
+      emptyText:
+        'Lege Projekte und Karten an – nach deinen ersten Lernrunden siehst du hier deinen Fortschritt.',
+      emptyAction: 'Zu den Projekten',
+      loading: 'Statistik wird geladen …',
+      kpis: {
+        label: 'Kennzahlen',
+        cards: 'Karten gesamt',
+        answersToday: 'Antworten heute',
+        streak: 'Lernserie',
+        streakValue: (days: number) => (days === 1 ? '1 Tag' : `${days} Tage`),
+        streakHint: (days: number) =>
+          days === 0
+            ? 'Lerne heute, um eine Serie zu starten.'
+            : 'Tage in Folge mit mindestens einer Antwort.',
+      },
+      activity: {
+        title: 'Aktivität',
+        subtitle: 'Antworten pro Tag, letzte 16 Wochen',
+        weekdays: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
+        less: 'Weniger',
+        more: 'Mehr',
+        hint: 'Tippe auf einen Tag für Details.',
+        cell: (date: string, count: number) =>
+          `${date}: ${count === 0 ? 'keine Antworten' : count === 1 ? '1 Antwort' : `${count} Antworten`}`,
+      },
+      projects: {
+        title: 'Projekte',
+        empty: 'Noch keine aktiven Projekte.',
+        cards: (n: number) => (n === 1 ? '1 Karte' : `${n} Karten`),
+        solidShare: (percent: number) => `${percent} % sicher`,
+      },
+      hardest: {
+        title: 'Schwierigste Karten',
+        subtitle: 'Niedrigster Beherrschungsgrad, mindestens 2 Antworten',
+        empty:
+          'Noch keine schwierigen Karten – beantworte Karten mindestens zweimal, dann erscheinen hier die, die noch nicht sitzen.',
+        study: 'Diese Karten lernen',
+        answers: (n: number) => (n === 1 ? '1 Antwort' : `${n} Antworten`),
+      },
     },
+  },
+  /** Mastery levels (lasting, from the answer log – not the round status). */
+  mastery: {
+    label: 'Beherrschungsgrad',
+    levels: { new: 'Neu', weak: 'Schwach', building: 'Im Aufbau', solid: 'Sicher' },
+    explanations: {
+      new: 'Noch nie abgefragt.',
+      weak: 'Sitzt noch nicht – öfter wiederholen.',
+      building: 'Wird langsam sicher – dranbleiben.',
+      solid:
+        'Sitzt. Neuere Antworten zählen mehr; ohne Wiederholung lässt der Wert mit der Zeit nach.',
+    },
+    detail: (level: string, percent: number, answers: number) =>
+      `${level} · ${percent} % · ${answers === 1 ? '1 Antwort' : `${answers} Antworten`}`,
+    dotLabel: (level: string) => `Beherrschungsgrad: ${level}`,
+    segment: (level: string, n: number) => `${level}: ${n}`,
   },
   settings: {
     title: 'Einstellungen',
@@ -442,6 +502,13 @@ export const de = {
     loadDemoData: 'Demo-Daten laden',
     demoDataHint:
       'Legt 3 Projekte mit je 30 Karten an (Japanisch, BWL, Aktien). Mehrfaches Laden erzeugt keine Duplikate.',
+    simulateHistory: 'Lernverlauf simulieren',
+    simulateHistoryHint:
+      'Erzeugt Lernrunden der letzten 16 Wochen für die vorhandenen Karten (Statistik, Heatmap, Beherrschungsgrad). Jeder Klick fügt weitere hinzu.',
+    historySimulated: (sessions: number, answers: number) =>
+      answers === 0
+        ? 'Keine Karten vorhanden'
+        : `${sessions} Runden mit ${answers} Antworten erzeugt`,
     demoDataLoaded: (projects: number, cards: number) =>
       projects === 0
         ? 'Demo-Daten sind schon vorhanden'
