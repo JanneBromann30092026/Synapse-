@@ -42,6 +42,9 @@ import { de } from '@/i18n/de';
 import { spring } from '@/styles/motion';
 import { studyLayoutId, useLaunchStudy, useStudyLaunch } from '@/features/study/studyLaunch';
 import { formatRelativeTime } from '@/core/relativeTime';
+import { countLevels } from '@/core/mastery';
+import { useProjectMastery } from '@/features/stats/hooks';
+import { MasteryBar } from '@/features/stats/MasteryBar';
 import { useLastRound, useProject, useProjects } from './hooks';
 import { ProjectDialog } from './ProjectDialog';
 
@@ -72,6 +75,7 @@ export function ProjectPage() {
   const projects = useProjects();
   const allCards = useCards(projectId);
   const lastRound = useLastRound(projectId);
+  const masteries = useProjectMastery(projectId);
   const launchStudy = useLaunchStudy();
   // Re-renders the study button when the launch starts, so the shared layout has its position.
   const launching = useStudyLaunch((s) => s.stage !== 'idle' && s.projectId === projectId);
@@ -233,6 +237,9 @@ export function ProjectPage() {
               </p>
             )}
           </div>
+          {masteries && masteries.size > 0 && (
+            <MasteryBar counts={countLevels(masteries.values())} legend className="max-w-2xl" />
+          )}
           <div className="flex flex-wrap gap-2">
             <Button
               size="lg"
@@ -369,6 +376,7 @@ export function ProjectPage() {
                     <CardRow
                       key={card.id}
                       card={card}
+                      mastery={masteries?.get(card.id)}
                       selecting={selecting}
                       selected={selected.has(card.id)}
                       swipeOpen={openRow === card.id}
@@ -391,6 +399,7 @@ export function ProjectPage() {
                     <CardTile
                       key={card.id}
                       card={card}
+                      mastery={masteries?.get(card.id)}
                       color={project.color}
                       selecting={selecting}
                       selected={selected.has(card.id)}

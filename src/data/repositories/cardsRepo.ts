@@ -61,6 +61,12 @@ export const cardsRepo = {
     return db.cards.get(id);
   },
 
+  /** Existing cards among `ids`, in the given order (missing ids are skipped). */
+  async getMany(ids: readonly string[]): Promise<Card[]> {
+    const cards = await db.cards.bulkGet([...ids]);
+    return cards.filter((card): card is Card => card !== undefined);
+  },
+
   async countByProject(projectId: string): Promise<number> {
     return db.cards.where('projectId').equals(projectId).count();
   },

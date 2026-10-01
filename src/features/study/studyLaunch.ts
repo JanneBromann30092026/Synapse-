@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { create } from 'zustand';
-import type { ProjectColor } from '@/data/types';
+import { CROSS_PROJECT_ID, type ProjectColor } from '@/data/types';
 import { useReducedMotion } from '@/styles/useReducedMotion';
 
 /**
@@ -17,7 +17,9 @@ interface LaunchState {
   color: ProjectColor | null;
   /** Route to return to (project page or project list). */
   returnPath: string;
-  expand: (projectId: string, color: ProjectColor, returnPath: string) => void;
+  /** Route of the study page (cross-project rounds carry their card ids). */
+  studyPath: string;
+  expand: (projectId: string, color: ProjectColor, returnPath: string, studyPath?: string) => void;
   arrive: () => void;
   returnFrom: (projectId: string, color: ProjectColor) => void;
   finish: () => void;
@@ -28,8 +30,9 @@ export const useStudyLaunch = create<LaunchState>((set) => ({
   projectId: null,
   color: null,
   returnPath: '/projects',
-  expand: (projectId, color, returnPath) =>
-    set({ stage: 'expanding', projectId, color, returnPath }),
+  studyPath: '/projects',
+  expand: (projectId, color, returnPath, studyPath = `/study/${projectId}`) =>
+    set({ stage: 'expanding', projectId, color, returnPath, studyPath }),
   arrive: () => set((s) => (s.stage === 'expanding' ? { stage: 'arrived' } : s)),
   returnFrom: (projectId, color) =>
     set((s) => ({
@@ -37,10 +40,20 @@ export const useStudyLaunch = create<LaunchState>((set) => ({
       projectId,
       color,
       // Direct opens (reload, deep link) return to the project page.
-      returnPath: s.projectId === projectId ? s.returnPath : `/projects/${projectId}`,
+      returnPath: s.projectId === projectId ? s.returnPath : defaultReturnPath(projectId),
     })),
   finish: () => set({ stage: 'idle' }),
 }));
+
+/** Where a study page opened directly (reload, deep link) returns to. */
+export function defaultReturnPath(projectId: string): string {
+  return projectId === CROSS_PROJECT_ID ? '/stats' : `/projects/${projectId}`;
+}
+
+/** Study route of a cross-project round with exactly these cards. */
+export function crossStudyPath(cardIds: readonly string[]): string {
+  return `/study/${CROSS_PROJECT_ID}?cards=${cardIds.join(',')}`;
+}
 
 /** layoutId shared by the "Lernen" buttons of a project and the expanding surface. */
 export function studyLayoutId(projectId: string): string {
@@ -52,13 +65,17 @@ export function useLaunchStudy() {
   const navigate = useNavigate();
   const reduced = useReducedMotion();
   return useCallback(
-    (project: { id: string; color: ProjectColor }, returnPath: string) => {
+    (
+      project: { id: string; color: ProjectColor },
+      returnPath: string,
+      studyPath = `/study/${project.id}`,
+    ) => {
       if (reduced) {
-        useStudyLaunch.setState({ projectId: project.id, returnPath, stage: 'idle' });
-        void navigate(`/study/${project.id}`);
+        useStudyLaunch.setState({ projectId: project.id, returnPath, studyPath, stage: 'idle' });
+        void navigate(studyPath);
         return;
       }
-      useStudyLaunch.getState().expand(project.id, project.color, returnPath);
+      useStudyLaunch.getState().expand(project.id, project.color, returnPath, studyPath);
     },
     [navigate, reduced],
   );
@@ -76,7 +93,7 @@ export function useLeaveStudy() {
           project && store.projectId === project.id
             ? store.returnPath
             : project
-              ? `/projects/${project.id}`
+              ? defaultReturnPath(project.id)
               : '/projects';
         store.finish();
         void navigate(path);

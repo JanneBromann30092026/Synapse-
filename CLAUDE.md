@@ -81,7 +81,7 @@ Touch-first (iPad):
 - [x] 8 Lernmodus – Session-Logik
 - [x] 9 Lernmodus – UI & Animationen
 - [x] 10 Lernmodus – Rundenende & Wiederholung
-- [ ] 11 Lernhistorie & Statistik
+- [x] 11 Lernhistorie & Statistik
 - [ ] 12 Gehirn – lokale Embeddings & Verknüpfungen
 - [ ] 13 Gehirn – Visualisierung
 - [ ] 14 Gehirn – Interaktion
@@ -157,4 +157,8 @@ Touch-first (iPad):
 - Antwortfeld bleibt am Rundenende unsichtbar gemountet (opacity 0, tabIndex −1) und wird beim Rundenende geblurrt; der Wiederholen-Tipp fokussiert es, damit die iPad-Tastatur für die neue Runde aufgeht. Tasten 1/2/3/Esc; leere Stapel deaktivieren den Button mit sichtbarer Begründung (aria-describedby). Die Stapel der Zusammenfassung haben eigene Test-IDs (`study-summary-pile-*`), weil beide Stapelpaare beim Übergang kurz gleichzeitig existieren.
 - Projektseite: „Letzte Runde: 85 % · vor 2 Stunden“ über `sessionsRepo.getLastCompleted` (letzte nicht abgebrochene, abgeschlossene Session; Prozent = correctCount/totalCards). Abbruch war schon seit Schritt 8 korrekt (aborted, Antworten bleiben).
 - E2E: `study.spec.ts` „round end …“ spielt drei Runden (alle → falsche per Taste 1 → alle per Button, dann Abbruch) und prüft Sessions/Antworten direkt in IndexedDB. Screenshots `study-summary-{mixed,list,perfect,project}` (gemockte KI, 30 Karten).
-
+- Schritt 11 (Statistik): `src/core/mastery.ts` – Anteil richtiger der letzten 8 Antworten, neueste Gewicht 1, jede ältere ×0,7; mal 0,5^(Tage seit letzter richtiger Antwort / 30). Stufen: neu (keine Antwort), schwach < 0,4, im Aufbau 0,4–0,75 (inkl.), sicher > 0,75. `hardestCards`: ≥ 2 Antworten, sichere Karten ausgenommen, max. 10. `src/core/activity.ts`: Tages-Schlüssel „YYYY-MM-DD“ per `Intl` (lokale Zeitzone), Kalenderarithmetik in UTC (DST-sicher), Serie bleibt bis Tagesende bestehen (ohne Antwort heute zählt sie bis gestern), Heatmap 16 Wochen ab Montag, Stufen 0–4 relativ zum stärksten Tag.
+- `statsRepo` (`masteryByProject`, `overview`, `activity`) ohne neue Dexie-Version: vorhandene Indizes reichen (cards.projectId, answers.cardId, answers.answeredAt); `activity` liest nur Index-Schlüssel der letzten ~17 Wochen und lädt den ganzen Verlauf nur, wenn die Serie darüber hinausreicht. Archivierte Projekte zählen in Kennzahlen/Balken/schwierigsten Karten nicht mit, ihre Antworten aber in Aktivität und Serie. Perf-Test: > 3000 simulierte Antworten (fake-indexeddb) < 3 s.
+- `/stats`: Kennzahlen, Heatmap (Antippen zeigt Datum/Anzahl), Projektbalken (`MasteryBar`, auch im Projektkopf), schwierigste Karten mit „Diese Karten lernen“ → `/study/cross?cards=…` (`crossStudyPath`); Kartenfarbe = Farbe des jeweiligen Projekts, Rückweg nach /stats (`defaultReturnPath`). `studyLaunch` hat dafür `studyPath`. Kartenlisten zeigen pro Karte einen `MasteryDot` (Antippen → Tooltip mit Erklärung).
+- Tooltip: Ein Tipp auf einen per Hover/Fokus geöffneten Tooltip (showOnTap) lässt ihn offen statt ihn zu schließen.
+- Entwicklertool „Lernverlauf simulieren“ (`src/features/dev/historyData.ts`, `sessionsRepo.importHistory`): 16 Wochen Runden für vorhandene Karten, letzte 9 Tage durchgehend (Serie), 15 % bleiben neu. E2E `e2e/stats.spec.ts`; Screenshots `stats`, `stats-day`, `stats-hardest-round`, `project-mastery`.

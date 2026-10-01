@@ -1,13 +1,13 @@
 import { Dexie } from 'dexie';
 import { db } from '../db';
-import { RecordNotFoundError, parseOrThrow } from '../errors';
+import { RecordNotFoundError, ValidationError, parseOrThrow } from '../errors';
 import {
   sessionCreateSchema,
   sessionResultSchema,
   type SessionCreateInput,
   type SessionResultInput,
 } from '../schemas';
-import type { StudySession } from '../types';
+import type { Answer, StudySession } from '../types';
 import { newId, nowIso } from '../util';
 
 async function close(
@@ -69,5 +69,24 @@ export const sessionsRepo = {
       .reverse()
       .filter((session) => !session.aborted && session.finishedAt !== undefined)
       .first();
+  },
+
+  /**
+   * Writes finished sessions with their answers as they are (timestamps included), all or
+   * nothing. Used by the developer tools to simulate a study history; every answer must belong
+   * to one of the sessions and to an existing card.
+   */
+  async importHistory(sessions: StudySession[], answers: Answer[]): Promise<void> {
+    const sessionIds = new Set(sessions.map((session) => session.id));
+    const index = answers.findIndex((answer) => !sessionIds.has(answer.sessionId));
+    if (index !== -1) throw new ValidationError('sessionId', 'invalid', index);
+    await db.transaction('rw', [db.studySessions, db.answers, db.cards], async () => {
+      const cardIds = [...new Set(answers.map((answer) => answer.cardId))];
+      const cards = await db.cards.bulkGet(cardIds);
+      const missing = cards.findIndex((card) => card === undefined);
+      if (missing !== -1) throw new RecordNotFoundError('card', cardIds[missing] ?? '');
+      await db.studySessions.bulkAdd(sessions);
+      await db.answers.bulkAdd(answers);
+    });
   },
 };

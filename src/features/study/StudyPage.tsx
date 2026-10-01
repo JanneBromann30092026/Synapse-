@@ -6,7 +6,7 @@ import {
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
-import { useParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowRight, Check, RotateCcw, Send, Sparkles, X } from 'lucide-react';
 import { summarizeRound } from '@/core/session';
@@ -24,9 +24,18 @@ import { useKeyboardInset } from '@/components/ui/hooks/useKeyboardInset';
 import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import { isImeEvent } from '@/core/hotkeys';
 import { displayedPiles, fitCard, pileLayoutId } from '@/core/study/presentation';
-import type { Project, StudyMode, Verdict } from '@/data/types';
+import { useLiveData } from '@/data/live';
+import { cardsRepo } from '@/data/repositories';
+import {
+  CROSS_PROJECT_ID,
+  type Card,
+  type Project,
+  type ProjectColor,
+  type StudyMode,
+  type Verdict,
+} from '@/data/types';
 import { useCards } from '@/features/cards/hooks';
-import { useProject } from '@/features/projects/hooks';
+import { useProject, useProjects } from '@/features/projects/hooks';
 import { useSettings } from '@/features/settings/settingsStore';
 import { de } from '@/i18n/de';
 import { spring } from '@/styles/motion';
@@ -52,9 +61,77 @@ const keepFocus = {
   onMouseDown: (event: { preventDefault: () => void }) => event.preventDefault(),
 };
 
+/** What the header shows: a project, or the cross-project round. */
+type StudyTopic = Pick<Project, 'id' | 'name' | 'color' | 'icon'>;
+
+const CROSS_TOPIC: StudyTopic = {
+  id: CROSS_PROJECT_ID,
+  name: t.cross.title,
+  color: 'violet',
+  icon: 'target',
+};
+
 export function StudyPage() {
   const { projectId = '' } = useParams();
+  const [params] = useSearchParams();
+  if (projectId === CROSS_PROJECT_ID) {
+    const cardIds = (params.get('cards') ?? '').split(',').filter(Boolean);
+    return <CrossStudyScreen key={cardIds.join(',')} cardIds={cardIds} />;
+  }
   return <StudyScreen key={projectId} projectId={projectId} />;
+}
+
+function NotFound({ text, back, onBack }: { text: string; back: string; onBack: () => void }) {
+  return (
+    <div className="flex h-full items-center justify-center p-6">
+      <EmptyState
+        title={text}
+        action={
+          <Button variant="secondary" onClick={onBack}>
+            {back}
+          </Button>
+        }
+      />
+    </div>
+  );
+}
+
+function Loading() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-6 p-6" aria-busy>
+      <Skeleton className="aspect-[3/2] w-full max-w-xl rounded-xl" />
+      <span className="sr-only">{t.loading}</span>
+    </div>
+  );
+}
+
+/** A round with exactly the given cards (e.g. "Schwierigste Karten"), each in its project color. */
+function CrossStudyScreen({ cardIds }: { cardIds: string[] }) {
+  const cards = useLiveData(() => cardsRepo.getMany(cardIds), [cardIds.join(',')]);
+  const projects = useProjects();
+  const session = useStudySession(CROSS_PROJECT_ID);
+  const leave = useLeaveStudy();
+
+  useEffect(() => {
+    useStudyLaunch.getState().arrive();
+  }, []);
+
+  if (cards === undefined || projects === undefined) return <Loading />;
+  if (cards.length === 0 && session.state.phase === 'setup') {
+    return (
+      <NotFound text={t.cross.notFound} back={t.cross.back} onBack={() => leave(CROSS_TOPIC)} />
+    );
+  }
+  const colors = new Map(projects.map((project) => [project.id, project.color]));
+  return (
+    <StudySurface
+      project={CROSS_TOPIC}
+      cards={cards}
+      session={session}
+      colorOf={(projectId) => colors.get(projectId) ?? CROSS_TOPIC.color}
+      onLeave={() => leave(CROSS_TOPIC)}
+    />
+  );
 }
 
 function StudyScreen({ projectId }: { projectId: string }) {
@@ -69,47 +146,32 @@ function StudyScreen({ projectId }: { projectId: string }) {
   }, []);
 
   if (project === null) {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <EmptyState
-          title={t.notFound}
-          action={
-            <Button variant="secondary" onClick={() => leave(null)}>
-              {t.back}
-            </Button>
-          }
-        />
-      </div>
-    );
+    return <NotFound text={t.notFound} back={t.back} onBack={() => leave(null)} />;
   }
 
-  if (project === undefined || cards === undefined) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-6 p-6" aria-busy>
-        <Skeleton className="aspect-[3/2] w-full max-w-xl rounded-xl" />
-        <span className="sr-only">{t.loading}</span>
-      </div>
-    );
-  }
+  if (project === undefined || cards === undefined) return <Loading />;
 
   return (
     <StudySurface
       project={project}
       cards={cards}
       session={session}
+      colorOf={() => project.color}
       onLeave={() => leave(project)}
     />
   );
 }
 
 interface StudySurfaceProps {
-  project: Project;
-  cards: NonNullable<ReturnType<typeof useCards>>;
+  project: StudyTopic;
+  cards: Card[];
   session: StudySession;
+  /** Color of a card (its project's color). */
+  colorOf: (projectId: string) => ProjectColor;
   onLeave: () => void;
 }
 
-function StudySurface({ project, cards, session, onLeave }: StudySurfaceProps) {
+function StudySurface({ project, cards, session, colorOf, onLeave }: StudySurfaceProps) {
   const { state, stats, current } = session;
   const { phase } = state;
   const reduced = useReducedMotion();
@@ -452,7 +514,7 @@ function StudySurface({ project, cards, session, onLeave }: StudySurfaceProps) {
                     expected={current.expected}
                     notes={cards.find((card) => card.id === current.card.id)?.notes}
                     userInput={state.userInput}
-                    color={color}
+                    color={colorOf(current.card.projectId)}
                     size={cardSize}
                     tone={tone}
                     flipped={flipped}
