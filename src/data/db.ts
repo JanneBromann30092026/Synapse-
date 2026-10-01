@@ -1,10 +1,12 @@
 import { Dexie, type EntityTable, type Table } from 'dexie';
+import { computeSchedules } from './scheduling';
 import type {
   Answer,
   Card,
   CardDirection,
   CardEmbedding,
   CardLink,
+  CardSchedule,
   GradingCacheEntry,
   GradingStrictness,
   GraphPosition,
@@ -36,6 +38,7 @@ export class SynapseDb extends Dexie {
   linkExplanations!: Table<LinkExplanation, [string, string]>;
   snapshots!: EntityTable<Snapshot, 'id'>;
   logs!: EntityTable<LogEntry, 'id'>;
+  cardSchedules!: EntityTable<CardSchedule, 'cardId'>;
 
   constructor(name = DB_NAME) {
     super(name);
@@ -72,6 +75,16 @@ export class SynapseDb extends Dexie {
     this.version(4).stores({
       logs: 'id, at',
     });
+
+    // Spaced repetition: schedule per card, seeded from the existing answer history.
+    this.version(5)
+      .stores({
+        cardSchedules: 'cardId, due',
+      })
+      .upgrade(async (tx) => {
+        const answers = (await tx.table('answers').toArray()) as Answer[];
+        await tx.table('cardSchedules').bulkPut(computeSchedules(answers));
+      });
   }
 }
 

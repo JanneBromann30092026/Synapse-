@@ -14,6 +14,8 @@ const t = de.pages.projects;
 
 export interface SortableProjectCardProps {
   project: ProjectSummary;
+  /** Cards due today (spaced repetition). */
+  dueCount: number;
   /** False while sorting, so motion's layout animation does not fight dnd-kit's transforms. */
   layoutEnabled: boolean;
   onMenu: (project: ProjectSummary, anchor: MenuAnchor) => void;
@@ -22,6 +24,7 @@ export interface SortableProjectCardProps {
 
 export function SortableProjectCard({
   project,
+  dueCount,
   layoutEnabled,
   onMenu,
   onStudy,
@@ -69,7 +72,7 @@ export function SortableProjectCard({
           transition={spring.snappy}
         >
           <ProjectCardView
-            project={project}
+            project={{ ...project, dueCount }}
             lifted={isDragging}
             launching={launching}
             onStudy={() => onStudy(project)}

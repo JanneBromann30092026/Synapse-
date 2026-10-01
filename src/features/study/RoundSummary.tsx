@@ -5,7 +5,7 @@ import { Button, ProgressRing, cn, projectColor } from '@/components/ui';
 import { formatDuration, formatSeconds } from '@/core/format';
 import { pickVariant, type RoundSummary as Summary, type SummaryItem } from '@/core/session';
 import { pileLayoutId, textLang } from '@/core/study/presentation';
-import type { StudyMode } from '@/data/types';
+import type { RepeatMode } from '@/data/types';
 import { de } from '@/i18n/de';
 import { spring } from '@/styles/motion';
 import { Confetti } from './Confetti';
@@ -43,7 +43,7 @@ export interface RoundSummaryProps {
   seed: string;
   color: string;
   reduced: boolean;
-  onRepeat: (mode: StudyMode) => void;
+  onRepeat: (mode: RepeatMode) => void;
   onLeave: () => void;
 }
 

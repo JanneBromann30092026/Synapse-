@@ -20,7 +20,7 @@ import {
 } from '@/core/session';
 import { answersRepo, sessionsRepo } from '@/data/repositories';
 import { LIMITS } from '@/data/schemas';
-import type { StudyMode, Verdict } from '@/data/types';
+import type { RepeatMode, Verdict } from '@/data/types';
 import { toast } from '@/components/ui/toastStore';
 import { de } from '@/i18n/de';
 import { gradingService, type GradingOutcome, type GradingService } from '@/services/grading';
@@ -292,7 +292,7 @@ export function createStudyController(scope: string, overrides: Partial<StudyDep
     start: (cards: readonly SessionCard[], options: RoundOptions): Promise<void> =>
       beginRound(() => createRound({ cards, options }, roundContext())),
     /** Follow-up round from the wrong / right pile or all cards; no-op for an empty pile. */
-    startNextRound: (mode: StudyMode): Promise<void> =>
+    startNextRound: (mode: RepeatMode): Promise<void> =>
       beginRound(() => buildNextRound(state, mode, roundContext())),
     setInput: (value: string) => dispatch({ type: 'INPUT_CHANGED', value }),
     submit: () => dispatch({ type: 'SUBMIT', at: deps.now() }),

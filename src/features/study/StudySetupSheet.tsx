@@ -24,9 +24,24 @@ export interface StudyOptions {
   strictness: GradingStrictness;
 }
 
+/** Which cards a project round asks: the due ones (spaced repetition) or all. */
+export type StudyScope = 'due' | 'all';
+
+export interface ScopeChoice {
+  value: StudyScope;
+  onChange: (scope: StudyScope) => void;
+  /** Size of the "Fällig" round and its parts. */
+  dueRound: { total: number; due: number; fresh: number };
+  allCount: number;
+  /** Relative time of the next due card, if nothing is due today. */
+  nextDue: string | null;
+}
+
 export interface StudySetupSheetProps {
   open: boolean;
   cardCount: number;
+  /** Due / all selection (project rounds only). */
+  scope?: ScopeChoice;
   options: StudyOptions;
   onChange: (options: StudyOptions) => void;
   onStart: () => void;
@@ -38,6 +53,7 @@ export interface StudySetupSheetProps {
 export function StudySetupSheet({
   open,
   cardCount,
+  scope,
   options,
   onChange,
   onStart,
@@ -56,7 +72,7 @@ export function StudySetupSheet({
           ? t.aiHints.offline
           : t.aiHints.ready;
 
-  if (cardCount === 0) {
+  if (cardCount === 0 && !scope) {
     return (
       <BottomSheet
         open={open}
@@ -83,6 +99,7 @@ export function StudySetupSheet({
           size="lg"
           icon={Play}
           fullWidth
+          disabled={cardCount === 0}
           onClick={onStart}
           // Keeps the focus where onStart puts it (the answer field, so the keyboard opens).
           onMouseDown={(event) => event.preventDefault()}
@@ -93,6 +110,20 @@ export function StudySetupSheet({
       }
     >
       <div className="flex flex-col gap-5 pb-2" data-testid="study-setup">
+        {scope && (
+          <Field label={t.scope} hint={scopeHint(scope)} hintTestId="study-scope-hint">
+            <SegmentedControl
+              label={t.scope}
+              className="w-full"
+              options={[
+                { value: 'due', label: t.scopeOptions.due(scope.dueRound.total) },
+                { value: 'all', label: t.scopeOptions.all(scope.allCount) },
+              ]}
+              value={scope.value}
+              onChange={scope.onChange}
+            />
+          </Field>
+        )}
         <Field label={t.direction}>
           <SegmentedControl
             label={t.direction}
@@ -139,13 +170,29 @@ export function StudySetupSheet({
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+function scopeHint(scope: ScopeChoice): string {
+  if (scope.value === 'all') return t.scopeHints.all;
+  if (scope.dueRound.total === 0) return t.scopeHints.nothingDue(scope.nextDue);
+  return t.scopeHints.due(scope.dueRound.due, scope.dueRound.fresh);
+}
+
+function Field({
+  label,
+  hint,
+  hintTestId = 'study-setup-hint',
+  children,
+}: {
+  label: string;
+  hint?: string;
+  hintTestId?: string;
+  children: ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-2">
       <span className="text-sm font-medium text-fg-secondary">{label}</span>
       {children}
       {hint && (
-        <p className="text-sm text-fg-muted" data-testid="study-setup-hint">
+        <p className="text-sm text-fg-muted" data-testid={hintTestId}>
           {hint}
         </p>
       )}

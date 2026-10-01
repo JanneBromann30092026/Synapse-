@@ -1,4 +1,4 @@
-import type { CardDirection, StudyDirection, StudyMode } from '@/data/types';
+import type { CardDirection, RepeatMode, StudyDirection } from '@/data/types';
 import { shuffleAvoidingFirst, type RandomSource } from './shuffle';
 import type {
   QueueItem,
@@ -60,7 +60,7 @@ export function createRound(
 }
 
 /** Cards a follow-up round in `mode` would ask (the pile, or all cards of the round). */
-export function cardsForNextRound(previous: SessionState, mode: StudyMode): SessionCard[] {
+export function cardsForNextRound(previous: SessionState, mode: RepeatMode): SessionCard[] {
   const ids =
     mode === 'wrong'
       ? previous.piles.incorrect
@@ -79,7 +79,7 @@ export function cardsForNextRound(previous: SessionState, mode: StudyMode): Sess
  */
 export function buildNextRound(
   previous: SessionState,
-  mode: StudyMode,
+  mode: RepeatMode,
   context: RoundContext,
 ): StartRoundAction | null {
   const cards = cardsForNextRound(previous, mode);

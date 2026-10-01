@@ -49,7 +49,7 @@ import { useProjectMastery } from '@/features/stats/hooks';
 import { MasteryBar } from '@/features/stats/MasteryBar';
 import { ExportDialog } from '@/features/transfer/ExportDialog';
 import { useImport } from '@/features/transfer/useImport';
-import { useLastRound, useProject, useProjects } from './hooks';
+import { useDueRound, useLastRound, useProject, useProjects } from './hooks';
 import { ProjectDialog } from './ProjectDialog';
 
 const t = de.pages.project;
@@ -81,6 +81,7 @@ export function ProjectPage() {
   const projects = useProjects();
   const allCards = useCards(projectId);
   const lastRound = useLastRound(projectId);
+  const dueRound = useDueRound(projectId);
   const masteries = useProjectMastery(projectId);
   const launchStudy = useLaunchStudy();
   // Re-renders the study button when the launch starts, so the shared layout has its position.
@@ -235,6 +236,21 @@ export function ProjectPage() {
           )}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-fg-muted">
             <p data-testid="card-count">{de.pages.projects.cardCount(cardCount)}</p>
+            {dueRound && cardCount > 0 && (
+              <p data-testid="due-summary" className="flex items-center gap-1.5">
+                <span aria-hidden className="size-1 rounded-full bg-fg-muted" />
+                {dueRound.due.length > 0 ? (
+                  <span className="text-accent">{t.due(dueRound.due.length)}</span>
+                ) : (
+                  <span>
+                    {dueRound.fresh.length === 0 && dueRound.nextDueAt !== null
+                      ? `${t.nothingDue} · ${t.nextDue(formatRelativeTime(new Date(dueRound.nextDueAt).toISOString()))}`
+                      : t.nothingDue}
+                  </span>
+                )}
+                {dueRound.fresh.length > 0 && <span>· {t.fresh(dueRound.fresh.length)}</span>}
+              </p>
+            )}
             {lastRound && lastRound.finishedAt && (
               <p data-testid="last-round" className="flex items-center gap-1.5">
                 <span aria-hidden className="size-1 rounded-full bg-fg-muted" />

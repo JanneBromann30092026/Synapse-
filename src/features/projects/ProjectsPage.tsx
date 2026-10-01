@@ -37,7 +37,7 @@ import { useLaunchStudy } from '@/features/study/studyLaunch';
 import { BackupReminder } from '@/features/transfer/BackupReminder';
 import { useImport } from '@/features/transfer/useImport';
 import { spring, TAP_SCALE } from '@/styles/motion';
-import { useProjects } from './hooks';
+import { useDueCounts, useProjects } from './hooks';
 import { ProjectDialog } from './ProjectDialog';
 import { SortableProjectCard } from './SortableProjectCard';
 
@@ -81,6 +81,7 @@ function NewProjectTile({ onClick }: { onClick: () => void }) {
 export function ProjectsPage() {
   const launchStudy = useLaunchStudy();
   const projects = useProjects();
+  const dueCounts = useDueCounts();
   const imports = useImport();
   const [query, setQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
@@ -326,6 +327,7 @@ export function ProjectsPage() {
                     <SortableProjectCard
                       key={project.id}
                       project={project}
+                      dueCount={dueCounts?.get(project.id)?.due ?? 0}
                       layoutEnabled={!sorting}
                       onMenu={(p, anchor) => setMenu({ project: p, anchor })}
                       onStudy={(p) => launchStudy(p, '/projects')}

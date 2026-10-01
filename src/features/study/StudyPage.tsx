@@ -1,6 +1,7 @@
 import {
   useEffect,
   useEffectEvent,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -25,6 +26,8 @@ import { useKeyboardInset } from '@/components/ui/hooks/useKeyboardInset';
 import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import { isImeEvent } from '@/core/hotkeys';
 import { displayedPiles, fitCard, pileLayoutId } from '@/core/study/presentation';
+import type { DueRound } from '@/core/scheduling/fsrs';
+import { formatRelativeTime } from '@/core/relativeTime';
 import { useLiveData } from '@/data/live';
 import { cardsRepo } from '@/data/repositories';
 import {
@@ -32,11 +35,11 @@ import {
   type Card,
   type Project,
   type ProjectColor,
-  type StudyMode,
+  type RepeatMode,
   type Verdict,
 } from '@/data/types';
 import { useCards } from '@/features/cards/hooks';
-import { useProject, useProjects } from '@/features/projects/hooks';
+import { useDueRound, useProject, useProjects } from '@/features/projects/hooks';
 import { useSettings } from '@/features/settings/settingsStore';
 import { de } from '@/i18n/de';
 import { spring } from '@/styles/motion';
@@ -45,7 +48,7 @@ import { RoundSummary } from './RoundSummary';
 import { StudyCard, type CardTone, type FlightTarget } from './StudyCard';
 import { useLeaveStudy, useStudyLaunch } from './studyLaunch';
 import { StudyPile } from './StudyPile';
-import { StudySetupSheet, type StudyOptions } from './StudySetupSheet';
+import { StudySetupSheet, type StudyOptions, type StudyScope } from './StudySetupSheet';
 import { useElementSize } from './useElementSize';
 import { useStudySession, type StudySession } from './useStudySession';
 
@@ -140,6 +143,7 @@ function StudyScreen({ projectId }: { projectId: string }) {
   const cards = useCards(projectId);
   const session = useStudySession(projectId);
   const leave = useLeaveStudy();
+  const dueRound = useDueRound(projectId);
 
   // The expanding surface of the "Lernen" button fades into the study background.
   useEffect(() => {
@@ -150,12 +154,13 @@ function StudyScreen({ projectId }: { projectId: string }) {
     return <NotFound text={t.notFound} back={t.back} onBack={() => leave(null)} />;
   }
 
-  if (project === undefined || cards === undefined) return <Loading />;
+  if (project === undefined || cards === undefined || dueRound === undefined) return <Loading />;
 
   return (
     <StudySurface
       project={project}
       cards={cards}
+      dueRound={dueRound}
       session={session}
       colorOf={() => project.color}
       onLeave={() => leave(project)}
@@ -167,12 +172,14 @@ interface StudySurfaceProps {
   project: StudyTopic;
   cards: Card[];
   session: StudySession;
+  /** Spaced-repetition plan of a project round (absent for cross-project rounds). */
+  dueRound?: DueRound;
   /** Color of a card (its project's color). */
   colorOf: (projectId: string) => ProjectColor;
   onLeave: () => void;
 }
 
-function StudySurface({ project, cards, session, colorOf, onLeave }: StudySurfaceProps) {
+function StudySurface({ project, cards, session, dueRound, colorOf, onLeave }: StudySurfaceProps) {
   const { state, stats, current } = session;
   const { phase } = state;
   const reduced = useReducedMotion();
@@ -187,6 +194,17 @@ function StudySurface({ project, cards, session, colorOf, onLeave }: StudySurfac
     gradingMode: choice.gradingMode ?? defaults.defaultGradingMode,
     strictness: choice.strictness ?? defaults.defaultStrictness,
   };
+  const [scopeChoice, setScopeChoice] = useState<StudyScope | null>(null);
+  const scope: StudyScope =
+    scopeChoice ?? (dueRound && dueRound.roundCardIds.length > 0 ? 'due' : 'all');
+  const roundCards = useMemo(() => {
+    if (!dueRound || scope === 'all') return cards;
+    const byId = new Map(cards.map((card) => [card.id, card]));
+    return dueRound.roundCardIds.flatMap((id) => {
+      const card = byId.get(id);
+      return card ? [card] : [];
+    });
+  }, [cards, dueRound, scope]);
   const [quitOpen, setQuitOpen] = useState(false);
   const [flight, setFlight] = useState<FlightTarget | null>(null);
   /** Evaluation id for which the user chose "Selbst bewerten" after an error. */
@@ -222,17 +240,17 @@ function StudySurface({ project, cards, session, colorOf, onLeave }: StudySurfac
     // Focus inside the tap, so iPadOS opens the on-screen keyboard.
     inputRef.current?.focus({ preventScroll: true });
     await session.start(
-      cards.map(({ id, projectId, front, back }) => ({ id, projectId, front, back })),
-      { projectId: project.id, mode: 'all', ...options },
+      roundCards.map(({ id, projectId, front, back }) => ({ id, projectId, front, back })),
+      { projectId: project.id, mode: dueRound && scope === 'due' ? 'due' : 'all', ...options },
     );
   }
 
   /** Pile sizes a follow-up round in `mode` would ask. */
-  const repeatCount = (mode: StudyMode) =>
+  const repeatCount = (mode: RepeatMode) =>
     mode === 'wrong' ? stats.incorrect : mode === 'right' ? stats.correct : stats.totalInRound;
 
   /** Next round from the round end: same options, the summary folds together, a card flies in. */
-  function repeat(mode: StudyMode) {
+  function repeat(mode: RepeatMode) {
     if (phase !== 'roundComplete' || repeatCount(mode) === 0) return;
     inputRef.current?.focus({ preventScroll: true });
     void session.startNextRound(mode);
@@ -323,7 +341,7 @@ function StudySurface({ project, cards, session, colorOf, onLeave }: StudySurfac
       return;
     }
     if (phase === 'roundComplete') {
-      const modes: Record<string, StudyMode> = { '1': 'wrong', '2': 'right', '3': 'all' };
+      const modes: Record<string, RepeatMode> = { '1': 'wrong', '2': 'right', '3': 'all' };
       const mode = modes[key];
       if (mode && !event.repeat) {
         event.preventDefault();
@@ -600,7 +618,23 @@ function StudySurface({ project, cards, session, colorOf, onLeave }: StudySurfac
 
       <StudySetupSheet
         open={phase === 'setup'}
-        cardCount={cards.length}
+        cardCount={roundCards.length}
+        {...(dueRound && {
+          scope: {
+            value: scope,
+            onChange: setScopeChoice,
+            dueRound: {
+              total: dueRound.roundCardIds.length,
+              due: dueRound.due.length,
+              fresh: dueRound.roundCardIds.length - dueRound.due.length,
+            },
+            allCount: cards.length,
+            nextDue:
+              dueRound.nextDueAt === null
+                ? null
+                : formatRelativeTime(new Date(dueRound.nextDueAt).toISOString()),
+          },
+        })}
         options={options}
         onChange={setChoice}
         onStart={() => void start()}

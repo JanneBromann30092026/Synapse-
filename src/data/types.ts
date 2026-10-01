@@ -20,8 +20,13 @@ export const PROJECT_COLORS = [
 ] as const;
 export type ProjectColor = (typeof PROJECT_COLORS)[number];
 
-export const STUDY_MODES = ['all', 'wrong', 'right'] as const;
+/** 'due' = first round with the cards due for review (spaced repetition) plus some new ones. */
+export const STUDY_MODES = ['all', 'wrong', 'right', 'due'] as const;
 export type StudyMode = (typeof STUDY_MODES)[number];
+
+/** Modes of a follow-up round at the round end (piles of the previous round). */
+export const REPEAT_MODES = ['wrong', 'right', 'all'] as const;
+export type RepeatMode = (typeof REPEAT_MODES)[number];
 
 export const STUDY_DIRECTIONS = ['front_to_back', 'back_to_front', 'mixed'] as const;
 export type StudyDirection = (typeof STUDY_DIRECTIONS)[number];
@@ -151,6 +156,21 @@ export interface LinkExplanation {
   createdAt: string;
 }
 
+/**
+ * Spaced-repetition schedule of a card (FSRS, see src/core/scheduling/fsrs.ts). Derived from the
+ * card's answers and recomputed whenever they change; never exported (rebuilt after imports).
+ */
+export interface CardSchedule {
+  cardId: string;
+  /** ISO timestamp when the card is due again. */
+  due: string;
+  stability: number;
+  difficulty: number;
+  reps: number;
+  lapses: number;
+  lastReviewedAt: string;
+}
+
 export interface GraphPosition {
   /** A card id or project id (project hubs). */
   nodeId: string;
@@ -200,4 +220,10 @@ export interface ProjectSummary extends Project {
   cardCount: number;
   /** startedAt of the latest study session, if any. */
   lastStudiedAt?: string;
+}
+
+/** Spaced-repetition counts of a project (due = due today, fresh = never answered). */
+export interface DueCounts {
+  due: number;
+  fresh: number;
 }
