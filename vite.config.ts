@@ -58,6 +58,22 @@ function cspPlugin(): Plugin {
   };
 }
 
+/**
+ * force-graph and float-tooltip inject their CSS as <style> elements at import time, which
+ * the CSP (style-src 'self') blocks. The calls are removed; the few rules live in global.css.
+ */
+function noStyleInjectPlugin(): Plugin {
+  return {
+    name: 'synapse-no-style-inject',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!/node_modules[\\/](force-graph|float-tooltip)[\\/]/.test(id)) return null;
+      if (!code.includes('styleInject(css_248z);')) return null;
+      return { code: code.replace('styleInject(css_248z);', ''), map: null };
+    },
+  };
+}
+
 export default defineConfig({
   base: BASE,
   define: {
@@ -77,6 +93,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     cspPlugin(),
+    noStyleInjectPlugin(),
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,

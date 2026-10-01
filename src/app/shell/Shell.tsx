@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { AnimatePresence, motion } from 'motion/react';
 import { Spinner, toast } from '@/components/ui';
 import { BrainPage } from '@/features/brain/BrainPage';
+import { useBrainView } from '@/features/brain/brainViewStore';
 import { ProjectPage } from '@/features/projects/ProjectPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
@@ -72,9 +73,11 @@ function AnimatedRoutes() {
   );
 }
 
-/** The study surface hides the navigation (focus mode). */
+/** The study surface and the brain in full screen hide the navigation (focus mode). */
 function useFocusMode(): boolean {
-  return useLocation().pathname.startsWith('/study/');
+  const { pathname } = useLocation();
+  const brainFullscreen = useBrainView((s) => s.fullscreen);
+  return pathname.startsWith('/study/') || (pathname === '/brain' && brainFullscreen);
 }
 
 export function Shell() {
