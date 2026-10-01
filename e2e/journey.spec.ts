@@ -1,8 +1,9 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 /**
  * Final end-to-end run (step 16): first start → project → cards → study with a mocked AI →
- * repeat → statistics → brain. Never calls a real API or downloads the model.
+ * repeat → statistics → brain → export/import. Never calls a real API or downloads the model.
  */
 
 function collectConsoleProblems(page: Page): string[] {
@@ -91,9 +92,14 @@ async function answer(page: Page, text: string, expected: 'presenting' | 'roundC
 test.describe('complete run', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('first start to brain', async ({ page }) => {
+  test('first start to export and import', async ({ page }) => {
     test.setTimeout(120_000);
     const problems = collectConsoleProblems(page);
+    // No share sheet in Chromium: the export falls back to a download.
+    await page.addInitScript(() => {
+      Reflect.deleteProperty(Navigator.prototype, 'share');
+      Reflect.deleteProperty(Navigator.prototype, 'canShare');
+    });
     const aiRequests = await mockAnthropic(page);
     const modelRequests: string[] = [];
     await page.context().route(/huggingface\.co|\.hf\.co/, async (route) => {
@@ -171,6 +177,42 @@ test.describe('complete run', () => {
     await page.goto('./#/brain');
     await expect(page.getByTestId('brain-stats')).toHaveText(/^3 Karten/, { timeout: 20_000 });
     await expect(page.getByTestId('brain-graph')).toBeVisible();
+
+    // 8. Export the project (JSON with history) and import it again as a new project.
+    await page.goto('./#/projects');
+    await page.getByRole('link', { name: 'Tiere öffnen' }).click();
+    await expect(page.getByTestId('card-count')).toHaveText('3 Karten');
+    await page.getByRole('button', { name: 'Exportieren' }).click();
+    const exportDialog = page.getByRole('dialog', { name: '„Tiere“ exportieren' });
+    await expect(exportDialog.getByTestId('export-file')).toContainText('.json');
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      exportDialog.getByTestId('export-confirm').click(),
+    ]);
+    const json = await readFile(await download.path());
+    const file = JSON.parse(json.toString('utf-8')) as { cards: unknown[]; answers: unknown[] };
+    expect(file.cards).toHaveLength(3);
+    expect(file.answers.length).toBeGreaterThanOrEqual(4);
+    expect(json.toString('utf-8')).not.toContain('sk-ant-');
+
+    await page.goto('./#/projects');
+    await expect(page.getByRole('heading', { level: 1, name: 'Projekte' })).toBeVisible();
+    await expect(page.getByTestId('import-file')).toHaveCount(1);
+    await page.getByTestId('import-file').setInputFiles({
+      name: download.suggestedFilename(),
+      mimeType: 'application/json',
+      buffer: json,
+    });
+    const importDialog = page.getByRole('dialog', { name: 'Synapse-Datei importieren' });
+    await expect(importDialog.getByTestId('json-summary')).toHaveText('1 Projekt · 3 Karten');
+    await importDialog.getByRole('radio', { name: 'Als neues Projekt' }).click();
+    await importDialog.getByTestId('import-confirm').click();
+    await expect(page.getByTestId('import-result')).toContainText(
+      '„Tiere (2)“ angelegt (3 Karten)',
+    );
+    await page.getByRole('button', { name: 'Fertig' }).click();
+    await page.getByRole('link', { name: 'Tiere (2) öffnen' }).click();
+    await expect(page.getByTestId('card-count')).toHaveText('3 Karten');
 
     expect(modelRequests).toEqual([]);
     expect(problems).toEqual([]);

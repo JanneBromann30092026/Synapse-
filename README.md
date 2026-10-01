@@ -50,7 +50,7 @@ dann unten.
   Gerät. Es gibt keinen Server und kein Konto.
 - Beim Start fordert Synapse dauerhaften Speicher an (Einstellungen → Speicher zeigt den Status).
 - Weil eine Web-App keine automatischen Datei-Backups anlegen kann, **exportiere regelmäßig ein
-  Backup** (Einstellungen → Daten) und lege die Datei in der Dateien-App oder in iCloud ab. Die App
+  Backup** (Einstellungen → Daten & Backups) und lege die Datei in der Dateien-App oder in iCloud ab. Die App
   erinnert dich daran.
 - Der API-Key wird nie exportiert und ist in keinem Backup enthalten.
 - Bei Problemen: Einstellungen → Fehlerprotokoll → „Fehlerprotokoll kopieren“ und den Text

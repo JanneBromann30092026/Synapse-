@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState, type ChangeEvent } from 'react';
 import { DropOverlay } from './DropOverlay';
-import { ImportDialog, type ImportSourceRequest } from './ImportDialog';
+import type { ImportSourceRequest } from './ImportDialog';
+import { LazyImportDialog } from './LazyImportDialog';
 import { useFileDrop } from './useFileDrop';
 
 /** File types offered by the Files app picker. */
@@ -44,13 +45,16 @@ export function useImport(projectId?: string) {
         data-testid="import-file"
         onChange={onChange}
       />
-      <ImportDialog
-        key={dialog.key}
-        open={dialog.open}
-        request={dialog.request}
-        projectId={projectId}
-        onClose={() => setDialog((d) => ({ ...d, open: false }))}
-      />
+      {dialog.request && (
+        // Mounted from the first use on (keeps the exit animation), loaded lazily.
+        <LazyImportDialog
+          key={dialog.key}
+          open={dialog.open}
+          request={dialog.request}
+          projectId={projectId}
+          onClose={() => setDialog((d) => ({ ...d, open: false }))}
+        />
+      )}
       <DropOverlay visible={dragging} />
     </>
   );
