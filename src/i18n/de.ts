@@ -320,6 +320,53 @@ export const de = {
       emptyTitle: 'Das Gehirn wächst noch',
       emptyText:
         'Sobald du Karten angelegt hast, verbindet das Gehirn sie nach Bedeutung – über alle Projekte hinweg.',
+      loading: 'Gehirn wird geladen …',
+      setup: {
+        title: 'Sprachmodell laden',
+        text: (mb: number) =>
+          `Damit Synapse deine Karten nach Bedeutung verbinden kann, lädt es einmalig ein Sprachmodell (ca. ${mb} MB). Danach läuft alles offline auf deinem Gerät – ohne Cloud und ohne Kosten.`,
+        wifi: 'Bitte nur im WLAN laden.',
+        action: (mb: number) => `Modell laden (${mb} MB)`,
+        offline: 'Du bist offline. Der Download startet, sobald du wieder verbunden bist.',
+      },
+      phase: {
+        downloading: 'Sprachmodell wird geladen …',
+        downloadBytes: (loaded: string, total: string) => `${loaded} von ${total}`,
+        downloadStarting: 'Verbindung wird aufgebaut …',
+        embedding: 'Karten werden analysiert …',
+        embeddingCount: (done: number, total: number) => `${done} von ${total} Karten`,
+        linking: 'Verknüpfungen werden berechnet …',
+      },
+      errors: {
+        title: 'Das hat nicht geklappt',
+        offline:
+          'Keine Internetverbindung. Das Modell wird nur einmal geladen – bitte im WLAN erneut versuchen.',
+        download:
+          'Das Sprachmodell konnte nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.',
+        init: 'Das Sprachmodell konnte nicht gestartet werden. Eventuell reicht der Speicher nicht – schließe andere Apps und versuche es erneut.',
+        embed: 'Beim Analysieren der Karten ist ein Fehler aufgetreten.',
+        links: 'Die Verknüpfungen konnten nicht berechnet werden.',
+        retry: 'Erneut versuchen',
+      },
+      summary: {
+        title: 'Wissensnetz',
+        cards: 'Karten analysiert',
+        links: 'Verbindungen',
+        cross: 'projektübergreifend',
+        pending: (n: number) =>
+          n === 1
+            ? '1 Karte wartet auf das Sprachmodell.'
+            : `${n} Karten warten auf das Sprachmodell.`,
+        preview:
+          'Vorschau: Hier entsteht die Wissenskarte. Schon jetzt siehst du, welche Karten das Gehirn verbindet.',
+      },
+      cross: {
+        title: 'Stärkste projektübergreifende Verbindungen',
+        subtitle: 'Karten aus verschiedenen Projekten mit ähnlicher Bedeutung.',
+        empty:
+          'Noch keine projektübergreifenden Verbindungen. Sie entstehen, wenn sich Karten verschiedener Projekte inhaltlich ähneln.',
+        similarity: 'Ähnlichkeit',
+      },
     },
     stats: {
       title: 'Statistik',
@@ -473,6 +520,30 @@ export const de = {
       title: 'Speicher',
       persistedHint:
         'Damit Safari deine Karten nicht nach einiger Zeit löscht, nutze Synapse als Homescreen-App – dort gewährt iPadOS dauerhaften Speicher.',
+    },
+    brain: {
+      title: 'Gehirn',
+      hint: 'Das Gehirn verbindet Karten mit ähnlicher Bedeutung. Alles wird lokal auf deinem Gerät berechnet.',
+      threshold: 'Ähnlichkeitsschwelle',
+      thresholdHint:
+        'Höher = nur sehr ähnliche Karten werden verbunden. Niedriger = mehr, aber auch losere Verbindungen.',
+      topK: 'Max. Verbindungen pro Karte',
+      status: (current: number, total: number, links: number) =>
+        `${current} von ${total} Karten analysiert · ${links} Verbindungen`,
+      recompute: 'Verknüpfungen neu berechnen',
+      recomputed: 'Verknüpfungen neu berechnet',
+      model: 'Sprachmodell',
+      modelStored: (size: string) => `Heruntergeladen (${size})`,
+      modelMissing: 'Nicht heruntergeladen',
+      deleteModel: 'Modell löschen',
+      deleteTitle: 'Sprachmodell löschen?',
+      deleteText:
+        'Gibt den Speicher frei. Bereits berechnete Verbindungen bleiben erhalten; für neue Karten musst du das Modell erneut laden.',
+      modelDeleted: 'Sprachmodell gelöscht',
+      embedder: 'Embeddings (Entwickler)',
+      embedderOptions: { model: 'Sprachmodell', hash: 'Test ohne Download' },
+      embedderHint:
+        '„Test ohne Download“ verbindet Karten nur nach gemeinsamen Buchstabenfolgen – zum Ausprobieren ohne Modell.',
     },
     privacy: {
       title: 'Datenschutz',

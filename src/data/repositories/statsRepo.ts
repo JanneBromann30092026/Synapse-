@@ -46,7 +46,7 @@ export interface ActivityStats {
 }
 
 /** Answers grouped per card id, each list oldest first. */
-function groupByCard(answers: readonly Answer[]): Map<string, MasteryAnswer[]> {
+export function groupByCard(answers: readonly Answer[]): Map<string, MasteryAnswer[]> {
   const byCard = new Map<string, MasteryAnswer[]>();
   for (const answer of answers) {
     let list = byCard.get(answer.cardId);
@@ -62,7 +62,11 @@ function groupByCard(answers: readonly Answer[]): Map<string, MasteryAnswer[]> {
   return byCard;
 }
 
-function masteries(cards: readonly Card[], answers: readonly Answer[], now: number): CardMastery[] {
+export function masteries(
+  cards: readonly Card[],
+  answers: readonly Answer[],
+  now: number,
+): CardMastery[] {
   const byCard = groupByCard(answers);
   return cards.map((card) => ({ card, mastery: computeMastery(byCard.get(card.id) ?? [], now) }));
 }

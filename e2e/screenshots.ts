@@ -505,6 +505,45 @@ async function projectMastery(page: Page) {
   await page.getByTestId('mastery-dot').nth(1).click();
 }
 
+async function setBrainEmbedder(page: Page, label: 'Sprachmodell' | 'Test ohne Download') {
+  await page.goto(`${PREVIEW_URL}#/settings`);
+  await page.getByTestId('settings-brain').getByRole('radio', { name: label }).click();
+}
+
+/** Model not downloaded yet: the one-time download notice. */
+async function brainSetup(page: Page) {
+  await setBrainEmbedder(page, 'Sprachmodell');
+  await page.goto(`${PREVIEW_URL}#/brain`);
+  await page.getByTestId('brain-setup').waitFor();
+}
+
+/** Download started; Hugging Face never answers (no real download in screenshots). */
+async function brainDownload(page: Page) {
+  await brainSetup(page);
+  await page.context().route(/huggingface\.co|\.hf\.co/, () => undefined);
+  await page.getByTestId('brain-download').click();
+  await page.getByTestId('brain-progress').waitFor();
+}
+
+/** Embeddings and links computed with the developer test embedder (no model download). */
+async function brainSummary(page: Page) {
+  await page.context().unroute(/huggingface\.co|\.hf\.co/);
+  await setBrainEmbedder(page, 'Test ohne Download');
+  await page.goto(`${PREVIEW_URL}#/brain`);
+  await page.getByTestId('brain-cross-links').waitFor({ timeout: 30_000 });
+}
+
+async function settingsBrain(page: Page) {
+  await page.getByTestId('settings-brain').scrollIntoViewIfNeeded();
+  await page
+    .getByTestId('brain-settings-status')
+    .filter({ hasText: /Verbindungen/ })
+    .waitFor();
+  await page.getByTestId('settings-brain').evaluate((element) => {
+    element.scrollIntoView({ block: 'start' });
+  });
+}
+
 const SHOTS: Shot[] = [
   { route: '/settings', name: 'settings', scroll: true },
   { route: '/settings', name: 'settings-ai', prepare: settingsWithKey },
@@ -540,6 +579,10 @@ const SHOTS: Shot[] = [
   { route: '/stats', name: 'stats-day', prepare: statsDay },
   { route: '/stats', name: 'stats-hardest-round', prepare: statsHardestRound },
   { route: '/projects', name: 'project-mastery', prepare: projectMastery },
+  { route: '/brain', name: 'brain-setup', prepare: brainSetup },
+  { route: '/brain', name: 'brain-download', prepare: brainDownload },
+  { route: '/brain', name: 'brain-summary', prepare: brainSummary, scroll: true },
+  { route: '/settings', name: 'brain-settings', prepare: settingsBrain },
 ];
 
 const VARIANTS: { name: string; options: BrowserContextOptions }[] = [

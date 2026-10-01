@@ -20,6 +20,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+        env:
+          # transformers.js depends on onnxruntime-node, whose install script downloads CUDA
+          # binaries on linux/x64. The app only uses the browser runtime.
+          ONNXRUNTIME_NODE_INSTALL: skip
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check

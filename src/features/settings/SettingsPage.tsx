@@ -5,6 +5,7 @@ import { SegmentedControl, Surface, Toggle } from '@/components/ui';
 import { Page } from '@/app/shell/Page';
 import { de } from '@/i18n/de';
 import { AiSettings } from './AiSettings';
+import { BrainSettings } from './BrainSettings';
 import { LearningSettings } from './LearningSettings';
 import { THEME_PREFERENCES, useSettings } from './settingsStore';
 import { AboutInfo, StorageInfo } from './SystemStatus';
@@ -85,6 +86,10 @@ export function SettingsPage() {
 
         <Section title={t.learning.title} testId="settings-learning">
           <LearningSettings />
+        </Section>
+
+        <Section title={t.brain.title} testId="settings-brain">
+          <BrainSettings />
         </Section>
 
         <Section title={t.storage.title}>
