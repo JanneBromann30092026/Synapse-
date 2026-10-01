@@ -1,22 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <radialGradient id="glow" cx="50%" cy="45%" r="60%">
-      <stop offset="0" stop-color="#6D5EF5" stop-opacity="0.35"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#171A2A"/>
+      <stop offset="1" stop-color="#0B0D12"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="48%" r="55%">
+      <stop offset="0" stop-color="#6D5EF5" stop-opacity="0.42"/>
       <stop offset="1" stop-color="#6D5EF5" stop-opacity="0"/>
     </radialGradient>
+    <radialGradient id="core" cx="40%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#A69CFA"/>
+      <stop offset="1" stop-color="#6D5EF5"/>
+    </radialGradient>
   </defs>
-  <rect width="512" height="512" rx="112" fill="#0B0D12"/>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
   <rect width="512" height="512" rx="112" fill="url(#glow)"/>
-  <g stroke="#8B80F8" stroke-width="14" stroke-linecap="round" opacity="0.85">
-    <line x1="256" y1="236" x2="150" y2="166"/>
-    <line x1="256" y1="236" x2="366" y2="174"/>
-    <line x1="256" y1="236" x2="196" y2="352"/>
-    <line x1="256" y1="236" x2="340" y2="340"/>
-    <line x1="196" y1="352" x2="340" y2="340"/>
+  <g stroke="#8B80F8" stroke-width="12" stroke-linecap="round" fill="none">
+    <path d="M256 250 L148 170" opacity="0.75"/>
+    <path d="M256 250 L372 160" opacity="0.75"/>
+    <path d="M256 250 L176 362" opacity="0.75"/>
+    <path d="M256 250 L356 352" opacity="0.75"/>
+    <path d="M148 170 L372 160" opacity="0.35"/>
+    <path d="M176 362 L356 352" opacity="0.35"/>
+    <path d="M372 160 L356 352" opacity="0.35"/>
   </g>
-  <circle cx="256" cy="236" r="46" fill="#6D5EF5"/>
-  <circle cx="150" cy="166" r="28" fill="#ECEEF3"/>
-  <circle cx="366" cy="174" r="24" fill="#10B981"/>
-  <circle cx="196" cy="352" r="26" fill="#ECEEF3"/>
-  <circle cx="340" cy="340" r="30" fill="#8B80F8"/>
+  <circle cx="256" cy="250" r="64" fill="#6D5EF5" opacity="0.25"/>
+  <circle cx="256" cy="250" r="48" fill="url(#core)"/>
+  <circle cx="148" cy="170" r="28" fill="#B4ACFB"/>
+  <circle cx="372" cy="160" r="24" fill="#8B80F8"/>
+  <circle cx="176" cy="362" r="24" fill="#8B80F8"/>
+  <circle cx="356" cy="352" r="32" fill="#B4ACFB"/>
 </svg>

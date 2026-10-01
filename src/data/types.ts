@@ -3,6 +3,8 @@
  * Booleans are stored as-is but never indexed (IndexedDB cannot index booleans).
  */
 
+import type { LogLevel } from '@/core/errorLog';
+
 /** Project color palette (token names). The actual colors are defined by the design system. */
 export const PROJECT_COLORS = [
   'indigo',
@@ -155,6 +157,17 @@ export interface GraphPosition {
   x: number;
   y: number;
   updatedAt: string;
+}
+
+/** Entry of the local error log (step 16); texts are redacted, see src/core/errorLog.ts. */
+export interface LogEntry {
+  id: string;
+  at: string;
+  level: LogLevel;
+  /** Where it was caught, e.g. "window", "promise", "console". */
+  source: string;
+  message: string;
+  detail?: string;
 }
 
 export interface Setting {

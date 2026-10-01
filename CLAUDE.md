@@ -86,7 +86,7 @@ Touch-first (iPad):
 - [x] 13 Gehirn – Visualisierung
 - [x] 14 Gehirn – Interaktion
 - [ ] 15 Import, Export & Backups
-- [ ] 16 Feinschliff & Installation
+- [x] 16 Feinschliff & Installation
 
 ## Entscheidungen & Notizen
 - Ursprünglich als Electron-Desktop-App geplant; umgestellt auf PWA, weil nur ein iPad zur Verfügung steht. Folgen: IndexedDB statt SQLite, kein Main-Prozess/IPC, KI-Aufruf direkt aus dem Browser, kein Ollama, Backups als Export statt Dateikopie.
@@ -190,3 +190,12 @@ Touch-first (iPad):
 - „Nachbarschaft lernen“ = `/study/cross?cards=…` (Karte + direkte Nachbarn), „Projekt lernen“ = normale Projektrunde; Rückweg jeweils /brain.
 - Entwickler-Hook `window.__synapseBrain` hat zusätzlich `linkScreen`, `cardLinks`, `cameraMoving`. E2E `e2e/brain-explore.spec.ts`; Screenshots `brain-focus`, `brain-search`, `brain-link`, `brain-hub`, `brain-filter` (Schwelle dort gesenkt, damit genug Verbindungen da sind).
 - Vorgezogen aus Schritt 15 (Wunsch: eigene VWL-Karten sofort nutzen): minimaler CSV-Import auf der Projektseite („Importieren“ → Dateien-App → Bestätigungsdialog mit Anzahl). Reine Logik `src/core/csvImport.ts` (RFC 4180, BOM, Trennzeichen , ; Tab automatisch, Kopfzeile front/back/notes/tags oder deutsche Namen in beliebiger Reihenfolge, sonst diese Spaltenfolge; Zeilen ohne Vorder-/Rückseite werden gemeldet). `cardsRepo.importMany` überspringt Karten mit gleicher normalisierter Vorderseite, alles in einer Transaktion. Schritt 15 baut darauf auf (Worker, Zuordnungsdialog, JSON, Export).
+- Schritt 16 (Feinschliff): Onboarding (`src/features/onboarding/`, lazy) erscheint nur, wenn settings `onboardingDone` fehlt, kein localStorage-Spiegel `synapse.onboardingDone` gesetzt ist und es keine Projekte gibt (Geräte mit Daten überspringen es still). Schritte: Willkommen → Home-Bildschirm (nur im Browser-Tab) → API-Key (optional, schaltet KI an) → Demo-Projekte oder leer. Playwright startet jeden Test mit `SKIP_ONBOARDING_STATE` (e2e/ipad.ts); `e2e/polish.spec.ts` und die Onboarding-Screenshots starten leer.
+- Fehlerprotokoll: Datenbank Version 3, Tabelle `logs` (`logsRepo`, max. 200, älteste fliegen raus). `src/services/errorLog.ts` fängt window-`error`, `unhandledrejection`, `console.error`/`warn` (Konsole bleibt unverändert), puffert bis die DB offen ist, schreibt seriell, gleiche Meldung höchstens alle 2 s. `src/core/errorLog.ts` entfernt `sk-ant-…`/Auth-Header, kürzt lange Zitate (Karteninhalte) und Meldungen (200 Zeichen), loggt von Objekten nur „[Objekt]“. Kopieren per `ClipboardItem` mit Promise (Safari verlangt die Geste), sonst Textfeld zum Markieren.
+- Kürzelübersicht: `?` überall außerhalb von Textfeldern (`src/app/shortcuts/`), zusätzlich Button in Einstellungen → Darstellung. Texte in `de.shortcuts` – neue Kürzel dort nachtragen.
+- Icon: `public/icons/favicon.svg` (Netzwerk aus Kreisen in Akzent-Violett auf dunklem Verlauf). `npm run icons` erzeugt PNGs und 36 iOS-Startbilder (`public/splash/`, 9 iPad-Größen × Hoch/Quer × Dark/Light, Liste in `scripts/splashScreens.ts`); die `<link rel="apple-touch-startup-image">` setzt `splashPlugin` in vite.config.ts. Startbilder sind vom Precache ausgenommen (iOS lädt sie bei der Installation selbst). Ob iOS `prefers-color-scheme` in der media-Abfrage beachtet, ist ungeprüft (auf dem iPad testen).
+- Code-Splitting: Gehirn- und Statistikseite per `React.lazy`, Onboarding und Demo-Daten ebenfalls. Worker werden ohnehin erst bei Bedarf erzeugt.
+- CSP: `z.config({ jitless: true })` in main.tsx – sonst probt zod `new Function` und Chrome meldet eine CSP-Verletzung (Lighthouse „Issues“).
+- Skeletons mit Shimmer (`.skeleton` in global.css, Token `--shimmer`), aus bei reduzierter Bewegung.
+- Tippflächen: Tag-Filter auf 44 px. Ausnahme Heatmap: Zellen ~37 px, die Trefferfläche reicht per `::before` über die Lücke (~43 px Raster).
+

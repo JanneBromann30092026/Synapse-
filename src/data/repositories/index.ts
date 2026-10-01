@@ -38,3 +38,4 @@ export {
   type LinkState,
   type PendingCard,
 } from './brainRepo';
+export { logsRepo, type NewLogEntry } from './logsRepo';

@@ -42,6 +42,8 @@ const schemas = {
     levels: z.array(z.enum(MASTERY_LEVELS)),
     hideUnlearned: z.boolean(),
   }),
+  /** First-start welcome finished or skipped (step 16). */
+  onboardingDone: z.boolean(),
   // Developer
   devMode: z.boolean(),
 };
@@ -64,6 +66,7 @@ export const SETTINGS_DEFAULTS: SettingsValues = {
   brainTopK: DEFAULT_LINK_OPTIONS.topK,
   brainEmbedder: 'model',
   brainFilter: DEFAULT_BRAIN_FILTER,
+  onboardingDone: false,
   devMode: false,
 };
 

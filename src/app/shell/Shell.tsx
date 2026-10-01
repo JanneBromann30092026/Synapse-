@@ -2,24 +2,30 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { AnimatePresence, motion } from 'motion/react';
 import { Spinner, toast } from '@/components/ui';
-import { BrainPage } from '@/features/brain/BrainPage';
 import { useBrainView } from '@/features/brain/brainViewStore';
 import { ProjectPage } from '@/features/projects/ProjectPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
-import { StatsPage } from '@/features/stats/StatsPage';
 import { StudyLaunchOverlay } from '@/features/study/StudyLaunchOverlay';
 import { StudyPage } from '@/features/study/StudyPage';
 import { de } from '@/i18n/de';
 import { easeOut } from '@/styles/motion';
 import { useReducedMotion } from '@/styles/useReducedMotion';
+import { ShortcutsOverlay } from '../shortcuts/ShortcutsOverlay';
 import { useAppStatus } from '../useAppStatus';
 import { useHotkeys } from '../hooks/useHotkeys';
 import { useMediaQuery, WIDE_LAYOUT_QUERY } from '../hooks/useMediaQuery';
 import { Sidebar } from './Sidebar';
 import { TabBar } from './TabBar';
 
-// Developer tools are rarely used: separate chunk.
+// Pages that are not needed for the first screen load on demand (own chunks).
+const BrainPage = lazy(() =>
+  import('@/features/brain/BrainPage').then((m) => ({ default: m.BrainPage })),
+);
+const StatsPage = lazy(() =>
+  import('@/features/stats/StatsPage').then((m) => ({ default: m.StatsPage })),
+);
+// Developer tools are rarely used.
 const DevUiPage = lazy(() => import('@/features/dev/DevUiPage'));
 
 function DatabaseErrorBanner() {
@@ -126,6 +132,7 @@ export function Shell() {
         </AnimatePresence>
       </div>
       <StudyLaunchOverlay />
+      <ShortcutsOverlay />
     </div>
   );
 }

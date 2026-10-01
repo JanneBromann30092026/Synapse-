@@ -1,10 +1,19 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { z } from 'zod';
 import '@fontsource-variable/inter';
 import { App } from '@/app/App';
 import { applyReduceMotion, applyTheme } from '@/app/theme';
 import { readBootPrefs } from '@/features/settings/settingsStore';
+import { installErrorLogging } from '@/services/errorLog';
 import '@/styles/global.css';
+
+// The CSP forbids eval: zod must not even probe for it (Chrome reports the probe as a
+// CSP violation although zod catches it).
+z.config({ jitless: true });
+
+// Local error log first, so startup errors are caught too.
+installErrorLogging();
 
 // Apply the stored theme before the first render to avoid a flash of the wrong theme.
 const bootPrefs = readBootPrefs();

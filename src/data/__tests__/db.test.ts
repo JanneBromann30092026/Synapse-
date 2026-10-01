@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { classifyOpenError, db, DB_NAME, openDatabase, SynapseDb } from '../db';
 
 describe('database schema', () => {
-  it('opens version 2 with all tables', async () => {
+  it('opens version 3 with all tables', async () => {
     expect(await openDatabase()).toEqual({ ok: true });
     expect(db.name).toBe(DB_NAME);
-    expect(db.verno).toBe(2);
+    expect(db.verno).toBe(3);
     expect(db.tables.map((table) => table.name).sort()).toEqual(
       [
         'answers',
@@ -16,6 +16,7 @@ describe('database schema', () => {
         'gradingCache',
         'graphPositions',
         'linkExplanations',
+        'logs',
         'projects',
         'secrets',
         'settings',

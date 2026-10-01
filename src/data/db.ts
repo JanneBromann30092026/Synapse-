@@ -9,6 +9,7 @@ import type {
   GradingStrictness,
   GraphPosition,
   LinkExplanation,
+  LogEntry,
   Project,
   Secret,
   Setting,
@@ -32,6 +33,7 @@ export class SynapseDb extends Dexie {
   settings!: EntityTable<Setting, 'key'>;
   secrets!: EntityTable<Secret, 'key'>;
   linkExplanations!: Table<LinkExplanation, [string, string]>;
+  logs!: EntityTable<LogEntry, 'id'>;
 
   constructor(name = DB_NAME) {
     super(name);
@@ -57,6 +59,11 @@ export class SynapseDb extends Dexie {
     // Step 14: cache of AI explanations for brain links (new table, no data to migrate).
     this.version(2).stores({
       linkExplanations: '[sourceCardId+targetCardId], sourceCardId, targetCardId',
+    });
+
+    // Step 16: local error log (last LOG_LIMIT entries, new table, no data to migrate).
+    this.version(3).stores({
+      logs: 'id, at',
     });
   }
 }

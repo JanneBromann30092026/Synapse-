@@ -2,8 +2,10 @@ import { useEffect } from 'react';
 import { HashRouter } from 'react-router';
 import { MotionConfig } from 'motion/react';
 import { Toaster } from '@/components/ui';
+import { OnboardingGate } from '@/features/onboarding/OnboardingGate';
 import { useSettings } from '@/features/settings/settingsStore';
 import { startBrainBackgroundSync } from '@/services/brain';
+import { markErrorLogReady } from '@/services/errorLog';
 import { Background } from './Background';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Shell } from './shell/Shell';
@@ -17,7 +19,9 @@ function useStartup() {
   useEffect(() => {
     void (async () => {
       await init();
-      if (useAppStatus.getState().database?.ok) await loadSettings();
+      if (!useAppStatus.getState().database?.ok) return;
+      await loadSettings();
+      await markErrorLogReady();
     })();
   }, [init, loadSettings]);
 }
@@ -52,6 +56,7 @@ export function App() {
         <HashRouter>
           <Background />
           <Shell />
+          <OnboardingGate />
           <Toaster />
           <UpdatePrompt />
         </HashRouter>

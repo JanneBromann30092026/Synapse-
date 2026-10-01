@@ -391,7 +391,7 @@ export function ProjectPage() {
                       aria-pressed={active}
                       onClick={() => setTag(value)}
                       className={cn(
-                        'focus-ring no-callout flex min-h-10 shrink-0 items-center rounded-full border px-4 text-sm font-medium whitespace-nowrap transition-colors',
+                        'focus-ring no-callout flex min-h-11 shrink-0 items-center rounded-full border px-4 text-sm font-medium whitespace-nowrap transition-colors',
                         active
                           ? 'border-transparent bg-accent-soft text-accent'
                           : 'border-line bg-surface text-fg-secondary hover:text-fg',

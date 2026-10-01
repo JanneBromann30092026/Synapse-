@@ -5,7 +5,7 @@
 import { mkdirSync } from 'node:fs';
 import { chromium, type BrowserContextOptions, type Page } from '@playwright/test';
 import { preview } from 'vite';
-import { IPAD_LANDSCAPE, IPAD_PORTRAIT, PREVIEW_URL } from './ipad.ts';
+import { IPAD_LANDSCAPE, IPAD_PORTRAIT, PREVIEW_URL, SKIP_ONBOARDING_STATE } from './ipad.ts';
 
 interface Shot {
   /** Hash route, e.g. "/projects". */
@@ -804,12 +804,31 @@ async function capture(page: Page, name: string) {
   console.log(`✓ ${file}`);
 }
 
+/** First start (empty storage): every step of the welcome. */
+async function captureOnboarding(variant: (typeof VARIANTS)[number]) {
+  const context = await browser.newContext({ ...variant.options, serviceWorkers: 'block' });
+  const page = await context.newPage();
+  await page.goto(PREVIEW_URL, { waitUntil: 'networkidle' });
+  for (const step of ['welcome', 'install', 'ai', 'start']) {
+    await page.getByTestId(`onboarding-step-${step}`).waitFor();
+    await page.waitForTimeout(700);
+    await capture(page, `onboarding-${step}-${variant.name}`);
+    if (step !== 'start') await page.getByTestId('onboarding-next').click();
+  }
+  await context.close();
+}
+
 const server = await preview();
 const browser = await chromium.launch();
 try {
   for (const variant of VARIANTS) {
+    if (!ONLY || 'onboarding'.startsWith(ONLY) || ONLY.startsWith('onboarding')) {
+      await captureOnboarding(variant);
+    }
+    if (ONLY?.startsWith('onboarding')) continue;
     const context = await browser.newContext({
       ...variant.options,
+      storageState: SKIP_ONBOARDING_STATE,
       // Keep screenshots free of the "offline ready" toast.
       serviceWorkers: 'block',
     });

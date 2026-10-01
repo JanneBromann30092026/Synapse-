@@ -20,6 +20,7 @@ import {
   toast,
   useImeGuard,
 } from '@/components/ui';
+import { useShortcutsHelp } from '@/app/shortcuts/shortcutsStore';
 import { useKeyboardInset } from '@/components/ui/hooks/useKeyboardInset';
 import { useMediaQuery } from '@/app/hooks/useMediaQuery';
 import { isImeEvent } from '@/core/hotkeys';
@@ -312,7 +313,7 @@ function StudySurface({ project, cards, session, colorOf, onLeave }: StudySurfac
   // Hardware keyboard: Enter, O, R/F or arrows, Esc; round end 1 / 2 / 3 (never during IME).
   const onKey = useEffectEvent((event: KeyboardEvent) => {
     if (isImeEvent(event) || event.metaKey || event.ctrlKey || event.altKey) return;
-    if (quitOpen || phase === 'setup') return;
+    if (quitOpen || phase === 'setup' || useShortcutsHelp.getState().open) return;
     const inAnswer = event.target === inputRef.current;
     const key = event.key.toLowerCase();
     if (key === 'escape') {

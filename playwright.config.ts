@@ -1,5 +1,5 @@
 import { defineConfig } from '@playwright/test';
-import { IPAD_LANDSCAPE, IPAD_PORTRAIT, PREVIEW_URL } from './e2e/ipad.ts';
+import { IPAD_LANDSCAPE, IPAD_PORTRAIT, PREVIEW_URL, SKIP_ONBOARDING_STATE } from './e2e/ipad.ts';
 
 export default defineConfig({
   testDir: './e2e',
@@ -12,6 +12,7 @@ export default defineConfig({
     baseURL: PREVIEW_URL,
     browserName: 'chromium',
     trace: 'retain-on-failure',
+    storageState: SKIP_ONBOARDING_STATE,
   },
   projects: [
     { name: 'ipad-landscape', use: IPAD_LANDSCAPE },
