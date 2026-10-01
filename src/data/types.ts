@@ -157,6 +157,21 @@ export interface GraphPosition {
   updatedAt: string;
 }
 
+export const SNAPSHOT_REASONS = ['auto', 'manual', 'beforeRestore'] as const;
+export type SnapshotReason = (typeof SNAPSHOT_REASONS)[number];
+
+/** A backup kept inside the app (protects against operating errors, not against data loss). */
+export interface Snapshot {
+  id: string;
+  createdAt: string;
+  reason: SnapshotReason;
+  projectCount: number;
+  cardCount: number;
+  answerCount: number;
+  /** The backup as Synapse JSON (a string clones much faster than thousands of objects). */
+  json: string;
+}
+
 export interface Setting {
   key: string;
   value: unknown;

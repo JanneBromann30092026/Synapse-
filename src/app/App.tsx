@@ -4,6 +4,7 @@ import { MotionConfig } from 'motion/react';
 import { Toaster } from '@/components/ui';
 import { useSettings } from '@/features/settings/settingsStore';
 import { startBrainBackgroundSync } from '@/services/brain';
+import { runAutoSnapshot } from '@/services/transfer/backups';
 import { Background } from './Background';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Shell } from './shell/Shell';
@@ -17,7 +18,10 @@ function useStartup() {
   useEffect(() => {
     void (async () => {
       await init();
-      if (useAppStatus.getState().database?.ok) await loadSettings();
+      if (!useAppStatus.getState().database?.ok) return;
+      await loadSettings();
+      // At most once a day, a snapshot of all data inside the app.
+      await runAutoSnapshot();
     })();
   }, [init, loadSettings]);
 }

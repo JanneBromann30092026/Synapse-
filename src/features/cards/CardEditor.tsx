@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChevronDown, CornerDownLeft, TriangleAlert } from 'lucide-react';
+import { ChevronDown, ClipboardPaste, CornerDownLeft, TriangleAlert } from 'lucide-react';
 import { Button, Modal, TagInput, Textarea, toast, useImeGuard } from '@/components/ui';
 import { normalizeCardText } from '@/core/cards';
 import { ValidationError } from '@/data/errors';
@@ -20,6 +20,8 @@ export interface CardEditorProps {
   card?: Card;
   /** Tags already used in the project (offered as suggestions). */
   projectTags?: string[];
+  /** Switches to pasting several cards at once (only offered for new cards). */
+  onPasteMany?: () => void;
 }
 
 type Field = 'front' | 'back' | 'notes';
@@ -45,7 +47,14 @@ function messageFor(error: ValidationError): string {
  * Card editor for quick entry ("Speichern & nächste" keeps the keyboard open) and editing.
  * Mount with a new `key` for every opening.
  */
-export function CardEditor({ open, onClose, projectId, card, projectTags = [] }: CardEditorProps) {
+export function CardEditor({
+  open,
+  onClose,
+  projectId,
+  card,
+  projectTags = [],
+  onPasteMany,
+}: CardEditorProps) {
   const isEdit = card !== undefined;
   const frontRef = useRef<HTMLTextAreaElement>(null);
   const backRef = useRef<HTMLTextAreaElement>(null);
@@ -204,6 +213,18 @@ export function CardEditor({ open, onClose, projectId, card, projectTags = [] }:
       }
     >
       <div className="flex flex-col gap-4" onKeyDown={(event) => onKeyDown(event)}>
+        {!isEdit && onPasteMany && (
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={ClipboardPaste}
+            onClick={onPasteMany}
+            className="-mt-2 -mb-2 self-end"
+            data-testid="paste-many"
+          >
+            {t.pasteMany}
+          </Button>
+        )}
         <Textarea
           textareaRef={frontRef}
           label={t.front}

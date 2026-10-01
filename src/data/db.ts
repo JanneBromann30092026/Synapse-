@@ -12,6 +12,7 @@ import type {
   Project,
   Secret,
   Setting,
+  Snapshot,
   StudySession,
 } from './types';
 
@@ -32,6 +33,7 @@ export class SynapseDb extends Dexie {
   settings!: EntityTable<Setting, 'key'>;
   secrets!: EntityTable<Secret, 'key'>;
   linkExplanations!: Table<LinkExplanation, [string, string]>;
+  snapshots!: EntityTable<Snapshot, 'id'>;
 
   constructor(name = DB_NAME) {
     super(name);
@@ -57,6 +59,11 @@ export class SynapseDb extends Dexie {
     // Step 14: cache of AI explanations for brain links (new table, no data to migrate).
     this.version(2).stores({
       linkExplanations: '[sourceCardId+targetCardId], sourceCardId, targetCardId',
+    });
+
+    // Step 15: automatic backup snapshots inside the app (new table, no data to migrate).
+    this.version(3).stores({
+      snapshots: 'id, createdAt',
     });
   }
 }

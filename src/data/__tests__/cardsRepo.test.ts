@@ -159,6 +159,8 @@ describe('cardsRepo', () => {
 describe('cardsRepo.importMany', () => {
   it('imports in order and skips duplicate front sides', async () => {
     await cardsRepo.create(project.id, { front: 'Hund', back: 'dog' });
+    // Later createdAt than "Hund" (same millisecond would make the order undefined).
+    await new Promise((resolve) => setTimeout(resolve, 2));
     const result = await cardsRepo.importMany(project.id, [
       { front: 'Katze', back: 'cat' },
       { front: ' hund ', back: 'dog' },
