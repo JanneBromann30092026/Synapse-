@@ -736,6 +736,21 @@ async function settingsBrain(page: Page) {
   });
 }
 
+async function settingsErrorLog(page: Page) {
+  // One example entry so the count is visible.
+  await page.evaluate(() => console.error('Beispielfehler für den Screenshot'));
+  await page.getByTestId('error-log-count').filter({ hasText: /Eintr/ }).waitFor();
+  await page.getByTestId('settings-error-log').evaluate((element) => {
+    element.scrollIntoView({ block: 'center' });
+  });
+}
+
+async function shortcuts(page: Page) {
+  await page.getByRole('heading', { level: 1 }).first().waitFor();
+  await page.keyboard.press('Shift+?');
+  await page.getByTestId('shortcuts').waitFor();
+}
+
 const SHOTS: Shot[] = [
   { route: '/settings', name: 'settings', scroll: true },
   { route: '/settings', name: 'settings-ai', prepare: settingsWithKey },
@@ -783,6 +798,8 @@ const SHOTS: Shot[] = [
   { route: '/brain', name: 'brain-hub', prepare: brainHub },
   { route: '/brain', name: 'brain-filter', prepare: brainFilter },
   { route: '/settings', name: 'brain-settings', prepare: settingsBrain },
+  { route: '/settings', name: 'error-log', prepare: settingsErrorLog },
+  { route: '/projects', name: 'shortcuts', prepare: shortcuts },
 ];
 
 const VARIANTS: { name: string; options: BrowserContextOptions }[] = [
