@@ -210,3 +210,4 @@ Touch-first (iPad):
 - Skeletons mit Shimmer (`.skeleton` in global.css, Token `--shimmer`), aus bei reduzierter Bewegung.
 - Tippflächen: Tag-Filter auf 44 px. Ausnahme Heatmap: Zellen ~37 px, die Trefferfläche reicht per `::before` über die Lücke (~43 px Raster).
 - Gesamtdurchlauf `e2e/journey.spec.ts`: leerer Speicher → Onboarding → Projekt + Karten → Lernen (lokal + gemockte KI) → Falsche wiederholen → Statistik → Gehirn (Test-Embedder) → JSON-Export → Import als neues Projekt.
+- Settings-Store: Änderungen, die vor dem Ende von `load()` passieren (Tipp während eines langsamen Starts), werden vom Laden nicht mehr überschrieben (`changedWhileLoading`). Fiel in der vollen E2E-Suite unter Last auf (Entwicklermodus-Schalter direkt nach dem Öffnen).
