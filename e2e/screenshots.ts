@@ -354,6 +354,107 @@ async function studySwipe(page: Page) {
   for (let i = 1; i <= 6; i++) await page.mouse.move(box.x + box.width / 2 + i * 14, y);
 }
 
+/** Mocked AI (never a real call): answers from WRONG_ANSWERS are wrong, everything else right. */
+const WRONG_ANSWERS = ['Fahrrad', 'Baum', 'Morgen'];
+
+async function mockMixedGrading(page: Page) {
+  await page.unroute('https://api.anthropic.com/**');
+  await page.route('https://api.anthropic.com/**', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: CORS });
+      return;
+    }
+    const body = route.request().postData() ?? '';
+    const wrong = WRONG_ANSWERS.some((answer) => body.includes(answer));
+    await route
+      .fulfill({
+        status: 200,
+        headers: CORS,
+        body: JSON.stringify({
+          id: 'msg_screenshot',
+          type: 'message',
+          role: 'assistant',
+          model: 'claude-haiku-4-5-20251001',
+          content: [
+            {
+              type: 'tool_use',
+              id: 'toolu_screenshot',
+              name: 'submit_grade',
+              input: wrong
+                ? {
+                    feedback: 'Nicht ganz – gesucht war eine andere Bedeutung.',
+                    verdict: 'incorrect',
+                    confidence: 0.9,
+                  }
+                : {
+                    feedback: 'Richtig – sinngemäß die gesuchte Bedeutung.',
+                    verdict: 'correct',
+                    confidence: 0.92,
+                  },
+            },
+          ],
+          stop_reason: 'tool_use',
+          stop_sequence: null,
+          usage: { input_tokens: 10, output_tokens: 10 },
+        }),
+      })
+      .catch(() => undefined);
+  });
+}
+
+/** Hash route of the last played round (the summary is restored from sessionStorage). */
+let summaryRoute = '';
+
+/** Plays a whole round of the Japanese demo project with the mocked AI. */
+async function playRound(page: Page, isWrong: (index: number) => boolean) {
+  await mockMixedGrading(page);
+  await startStudy(page, { ai: true });
+  const surface = page.getByTestId('study-surface');
+  const input = page.getByTestId('study-input');
+  for (let index = 0; ; index++) {
+    await input.fill(
+      isWrong(index) ? (WRONG_ANSWERS[index % WRONG_ANSWERS.length] ?? '') : 'so ungefähr',
+    );
+    await input.press('Enter');
+    await surface.and(page.locator('[data-phase="revealed"]')).waitFor();
+    await input.press('Enter');
+    await page
+      .locator(
+        '[data-testid="study-surface"]:is([data-phase="presenting"], [data-phase="roundComplete"])',
+      )
+      .waitFor();
+    if ((await surface.getAttribute('data-phase')) === 'roundComplete') break;
+  }
+  summaryRoute = new URL(page.url()).hash.slice(1);
+}
+
+async function studySummaryMixed(page: Page) {
+  await playRound(page, (index) => index % 4 === 1 || index % 7 === 3);
+  await page.waitForTimeout(2200); // staggered build-up and the ring counting up
+}
+
+/** Same summary after a reload, scrolled to the list of wrong answers. */
+async function studySummaryList(page: Page) {
+  await page.goto(`${PREVIEW_URL}#${summaryRoute}`);
+  const summary = page.getByTestId('study-complete');
+  await summary.waitFor();
+  await page.waitForTimeout(1500);
+  await page
+    .getByTestId('study-list-incorrect')
+    .evaluate((element) => element.scrollIntoView({ block: 'start' }));
+}
+
+/** All right: confetti mid-flight. */
+async function studySummaryPerfect(page: Page) {
+  await playRound(page, () => false);
+  await page.waitForTimeout(150);
+}
+
+async function projectLastRound(page: Page) {
+  await openProject('Japanisch Grundwortschatz')(page);
+  await page.getByTestId('last-round').waitFor();
+}
+
 const SHOTS: Shot[] = [
   { route: '/settings', name: 'settings', scroll: true },
   { route: '/settings', name: 'settings-ai', prepare: settingsWithKey },
@@ -380,6 +481,10 @@ const SHOTS: Shot[] = [
   { route: '/projects', name: 'study-wrong', prepare: studyWrong },
   { route: '/projects', name: 'study-self', prepare: studySelf },
   { route: '/projects', name: 'study-swipe', prepare: studySwipe },
+  { route: '/projects', name: 'study-summary-mixed', prepare: studySummaryMixed },
+  { route: '/projects', name: 'study-summary-list', prepare: studySummaryList },
+  { route: '/projects', name: 'study-summary-perfect', prepare: studySummaryPerfect },
+  { route: '/projects', name: 'study-summary-project', prepare: projectLastRound },
 ];
 
 const VARIANTS: { name: string; options: BrowserContextOptions }[] = [

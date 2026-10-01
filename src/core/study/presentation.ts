@@ -133,3 +133,61 @@ export function burstParticles(count: number, random: RandomSource, radius = 90)
     };
   });
 }
+
+export const CONFETTI_SHAPES = ['circle', 'square', 'triangle', 'ring'] as const;
+export type ConfettiShape = (typeof CONFETTI_SHAPES)[number];
+
+export interface ConfettiPiece {
+  id: number;
+  shape: ConfettiShape;
+  /** Index into the palette (project / accent colors). */
+  tone: number;
+  size: number;
+  /** Peak of the burst (px from the origin, y negative = up). */
+  peakX: number;
+  peakY: number;
+  /** End position after falling (px from the origin). */
+  endX: number;
+  endY: number;
+  /** Degrees turned during the flight. */
+  rotate: number;
+  /** Seconds. */
+  delay: number;
+  /** Seconds, the whole effect stays around 2 s. */
+  duration: number;
+}
+
+/**
+ * Round-end confetti: an upward fan that drifts apart and falls, round and geometric shapes.
+ * Deterministic with an injected random source; `spread` is the half width in px.
+ */
+export function confettiPieces(
+  count: number,
+  random: RandomSource,
+  { spread = 260, height = 220, tones = 4 } = {},
+): ConfettiPiece[] {
+  const n = Math.max(0, Math.min(80, Math.round(count)));
+  return Array.from({ length: n }, (_, id) => {
+    // Fan between -150° and -30° (upwards), a little jitter.
+    const angle = (-150 + (120 * (id + random())) / Math.max(1, n)) * (Math.PI / 180);
+    const power = 0.55 + random() * 0.45;
+    const peakX = Math.round(Math.cos(angle) * spread * power);
+    const peakY = Math.round(Math.sin(angle) * height * power);
+    return {
+      id,
+      shape: CONFETTI_SHAPES[id % CONFETTI_SHAPES.length] ?? 'circle',
+      tone: id % Math.max(1, tones),
+      size: Math.round(7 + random() * 7),
+      peakX,
+      peakY,
+      endX: Math.round(peakX * 1.35 + (random() - 0.5) * 60),
+      endY: Math.round(peakY + height * (0.9 + random() * 0.6)),
+      rotate: Math.round((random() - 0.5) * 540),
+      delay: Math.round(random() * 150) / 1000,
+      duration: Math.round((1.6 + random() * 0.35) * 100) / 100,
+    };
+  });
+}
+
+/** Shared by the piles of the running round and the summary: they glide into the middle. */
+export const pileLayoutId = (kind: 'correct' | 'incorrect'): string => `study-pile-${kind}`;

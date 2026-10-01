@@ -50,6 +50,22 @@ describe('sessionsRepo', () => {
     expect(await sessionsRepo.getLatestByProject(crypto.randomUUID())).toBeUndefined();
   });
 
+  it('returns the last completed round, skipping aborted and running ones', async () => {
+    const wait = () => new Promise((resolve) => setTimeout(resolve, 5));
+    expect(await sessionsRepo.getLastCompleted(project.id)).toBeUndefined();
+    const done = await sessionsRepo.create(sessionInput(project.id));
+    await sessionsRepo.finish(done.id, { correctCount: 1, incorrectCount: 0 });
+    await wait();
+    const aborted = await sessionsRepo.create({ ...sessionInput(project.id), roundNumber: 2 });
+    await sessionsRepo.abort(aborted.id);
+    await wait();
+    await sessionsRepo.create({ ...sessionInput(project.id), roundNumber: 3 });
+    expect(await sessionsRepo.getLastCompleted(project.id)).toMatchObject({
+      id: done.id,
+      correctCount: 1,
+    });
+  });
+
   it('validates enums and counts', async () => {
     await expect(
       sessionsRepo.create({ ...sessionInput(project.id), mode: 'some' as 'all' }),

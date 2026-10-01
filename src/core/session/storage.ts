@@ -18,6 +18,19 @@ const STORAGE_VERSION = 1;
 
 const verdict = z.enum(VERDICTS);
 
+const resultSchema = z.object({
+  cardId: z.string(),
+  direction: z.enum(CARD_DIRECTIONS),
+  userInput: z.string(),
+  verdict,
+  method: z.enum(ANSWER_METHODS),
+  confidence: z.number().optional(),
+  feedback: z.string().optional(),
+  cached: z.boolean().optional(),
+  responseTimeMs: z.number(),
+  originalVerdict: verdict,
+});
+
 const stateSchema = z.object({
   phase: z.enum(SESSION_PHASES),
   sessionId: z.string().nullable(),
@@ -39,23 +52,13 @@ const stateSchema = z.object({
   evaluationId: z.int().min(0),
   selfAssessmentReason: z.enum(SELF_ASSESSMENT_REASONS).nullable(),
   errorMessage: z.string().nullable(),
-  lastResult: z
-    .object({
-      cardId: z.string(),
-      direction: z.enum(CARD_DIRECTIONS),
-      userInput: z.string(),
-      verdict,
-      method: z.enum(ANSWER_METHODS),
-      confidence: z.number().optional(),
-      feedback: z.string().optional(),
-      cached: z.boolean().optional(),
-      responseTimeMs: z.number(),
-      originalVerdict: verdict,
-    })
-    .nullable(),
+  lastResult: resultSchema.nullable(),
   piles: z.object({ correct: z.array(z.string()), incorrect: z.array(z.string()) }),
   answerIds: z.record(z.string(), z.string()),
   startedAt: z.string().nullable(),
+  // Added in step 10; snapshots of older builds have no results yet.
+  results: z.record(z.string(), resultSchema).default({}),
+  completedAt: z.number().nullable().default(null),
 });
 
 const snapshotSchema = z.object({ version: z.literal(STORAGE_VERSION), state: stateSchema });

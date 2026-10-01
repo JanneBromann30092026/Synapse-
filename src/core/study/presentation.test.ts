@@ -3,6 +3,7 @@ import { initialSessionState, seededRandom } from '@/core/session';
 import {
   burstParticles,
   CARD_MAX_WIDTH,
+  confettiPieces,
   displayedPiles,
   fitCard,
   flightPath,
@@ -115,5 +116,25 @@ describe('animation helpers', () => {
     expect(burstParticles(3, seededRandom(1))).toHaveLength(8);
     expect(burstParticles(40, seededRandom(1))).toHaveLength(14);
     expect(burstParticles(12, seededRandom(7))).toEqual(burstParticles(12, seededRandom(7)));
+  });
+});
+
+describe('confettiPieces', () => {
+  it('is deterministic, mixes shapes and colors and flies upwards first', () => {
+    const pieces = confettiPieces(40, seededRandom(5));
+    expect(confettiPieces(40, seededRandom(5))).toEqual(pieces);
+    expect(pieces).toHaveLength(40);
+    expect(new Set(pieces.map((p) => p.shape)).size).toBe(4);
+    expect(new Set(pieces.map((p) => p.tone)).size).toBe(4);
+    for (const piece of pieces) {
+      expect(piece.peakY).toBeLessThan(0);
+      expect(piece.endY).toBeGreaterThan(piece.peakY);
+      expect(piece.delay + piece.duration).toBeLessThanOrEqual(2.2);
+    }
+  });
+
+  it('clamps the amount', () => {
+    expect(confettiPieces(-3, seededRandom(1))).toEqual([]);
+    expect(confettiPieces(500, seededRandom(1))).toHaveLength(80);
   });
 });

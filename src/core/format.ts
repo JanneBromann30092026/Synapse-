@@ -21,3 +21,27 @@ export function formatBytes(bytes: number): string {
   }).format(value);
   return `${formatted} ${UNITS[unitIndex]}`;
 }
+
+/**
+ * Short German duration, e.g. "45 s", "2:05 min", "1:02 h" (seconds rounded).
+ * Invalid or negative values yield "–".
+ */
+export function formatDuration(ms: number | null): string {
+  if (ms === null || !Number.isFinite(ms) || ms < 0) return '–';
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds < 60) return `${totalSeconds} s`;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const minutes = Math.floor(totalSeconds / 60);
+  if (minutes < 60) return `${minutes}:${pad(totalSeconds % 60)} min`;
+  return `${Math.floor(minutes / 60)}:${pad(minutes % 60)} h`;
+}
+
+/** Seconds with one decimal below 10 s, e.g. "4,2 s", "12 s"; "–" for null. */
+export function formatSeconds(ms: number | null): string {
+  if (ms === null || !Number.isFinite(ms) || ms < 0) return '–';
+  const seconds = ms / 1000;
+  const formatted = new Intl.NumberFormat('de-DE', {
+    maximumFractionDigits: seconds < 10 ? 1 : 0,
+  }).format(seconds);
+  return `${formatted} s`;
+}

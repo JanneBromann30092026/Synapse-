@@ -23,6 +23,8 @@ export const initialSessionState: SessionState = {
   piles: { correct: [], incorrect: [] },
   answerIds: {},
   startedAt: null,
+  results: {},
+  completedAt: null,
 };
 
 /** Phases in which a round is running (can be aborted, is worth restoring after a reload). */
@@ -50,6 +52,7 @@ function startRound(state: SessionState, action: StartRoundAction): SessionState
     queue,
     presentedAt: queue.length > 0 ? action.at : null,
     startedAt: action.startedAt,
+    completedAt: queue.length > 0 ? null : action.at,
     // Keeps ids growing across rounds, so a late result of an old round never matches.
     evaluationId: state.evaluationId,
   };
@@ -87,6 +90,7 @@ function reveal(
     selfAssessmentReason: null,
     errorMessage: null,
     piles: addToPile(state.piles, item.cardId, result.verdict),
+    results: { ...state.results, [item.cardId]: lastResult },
   };
 }
 
@@ -165,7 +169,12 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
         method: 'override',
         confidence: 1,
       };
-      return { ...state, lastResult, piles: addToPile(state.piles, last.cardId, action.verdict) };
+      return {
+        ...state,
+        lastResult,
+        piles: addToPile(state.piles, last.cardId, action.verdict),
+        results: { ...state.results, [last.cardId]: lastResult },
+      };
     }
 
     case 'NEXT': {
@@ -173,7 +182,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
       if (state.phase !== 'transitioning') return state;
       const nextIndex = state.currentIndex + 1;
       if (nextIndex >= state.queue.length) {
-        return { ...state, phase: 'roundComplete', presentedAt: null };
+        return { ...state, phase: 'roundComplete', presentedAt: null, completedAt: action.at };
       }
       return {
         ...state,

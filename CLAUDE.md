@@ -80,7 +80,7 @@ Touch-first (iPad):
 - [x] 7 Bewertungs-Engine
 - [x] 8 Lernmodus – Session-Logik
 - [x] 9 Lernmodus – UI & Animationen
-- [ ] 10 Lernmodus – Rundenende & Wiederholung
+- [x] 10 Lernmodus – Rundenende & Wiederholung
 - [ ] 11 Lernhistorie & Statistik
 - [ ] 12 Gehirn – lokale Embeddings & Verknüpfungen
 - [ ] 13 Gehirn – Visualisierung
@@ -152,3 +152,9 @@ Touch-first (iPad):
 - `ProgressRing` animiert jetzt vom zuletzt gezeigten Wert aus (vorher immer ab 0).
 - Rundenende ist ein Platzhalter (Ring, Zählung, „Neue Runde“, „Zurück“) – Schritt 10 ersetzt ihn.
 - E2E `e2e/study.spec.ts`: ganze Runde mit Selbstbewertung (Button, Taste F, Wischen), automatische Bewertung (lokal, Override, gemockte KI mit Feedback), KI-Ausfall → Selbstbewertung + Hinweis, Esc → Beenden-Dialog. Screenshots `study-*` mit simulierter Bildschirmtastatur (gefälschtes `visualViewport` per Init-Skript + grauer Block, `window.__setKeyboard`).
+- Schritt 10 (Rundenende): SessionState hat jetzt `results` (LastResult pro Karte, auch nach Override) und `completedAt` (Epoch ms); im sessionStorage-Format mit Standardwerten ergänzt (alte Snapshots bleiben gültig). Reine Auswertung in `src/core/session/summary.ts` (`summarizeRound`: Zählung, Dauer Start→Ende, Ø-Antwortzeit, Listen in Abfragereihenfolge; `motivationTier` 100/≥80/≥50/<50; `pickVariant` stabil per Seed = startedAt). `formatDuration`/`formatSeconds` in `src/core/format.ts`, `confettiPieces` + `pileLayoutId` in `src/core/study/presentation.ts`.
+- `RoundSummary` + `Confetti` (src/features/study/): Stapel teilen `layoutId` (layout="position") mit den Stapeln der laufenden Runde und gleiten so in die Mitte; Stage und Zusammenfassung liegen absolut in einem AnimatePresence (Standardmodus, kein popLayout), die Stage blendet aus, die Zusammenfassung baut sich per staggerChildren auf und faltet sich beim Wiederholen rückwärts zusammen, während die erste Karte einfliegt. Konfetti flach und breit, weil die Zusammenfassung scrollt (overflow schneidet sonst oben ab); Projektfarbe über `projectColor()` auflösen (Projektfarben sind Schlüssel wie „rose“, keine CSS-Farben).
+- Antwortfeld bleibt am Rundenende unsichtbar gemountet (opacity 0, tabIndex −1) und wird beim Rundenende geblurrt; der Wiederholen-Tipp fokussiert es, damit die iPad-Tastatur für die neue Runde aufgeht. Tasten 1/2/3/Esc; leere Stapel deaktivieren den Button mit sichtbarer Begründung (aria-describedby). Die Stapel der Zusammenfassung haben eigene Test-IDs (`study-summary-pile-*`), weil beide Stapelpaare beim Übergang kurz gleichzeitig existieren.
+- Projektseite: „Letzte Runde: 85 % · vor 2 Stunden“ über `sessionsRepo.getLastCompleted` (letzte nicht abgebrochene, abgeschlossene Session; Prozent = correctCount/totalCards). Abbruch war schon seit Schritt 8 korrekt (aborted, Antworten bleiben).
+- E2E: `study.spec.ts` „round end …“ spielt drei Runden (alle → falsche per Taste 1 → alle per Button, dann Abbruch) und prüft Sessions/Antworten direkt in IndexedDB. Screenshots `study-summary-{mixed,list,perfect,project}` (gemockte KI, 30 Karten).
+
