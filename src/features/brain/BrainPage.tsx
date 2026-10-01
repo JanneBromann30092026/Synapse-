@@ -1,34 +1,45 @@
-import { useEffect, type ReactNode } from 'react';
-import { motion } from 'motion/react';
-import { Download, Link2, RotateCw, Sparkles, WifiOff } from 'lucide-react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
+import { AnimatePresence, motion } from 'motion/react';
+import { Download, RotateCw, Sparkles, WifiOff } from 'lucide-react';
 import {
   Button,
+  cn,
+  ConfirmDialog,
   EmptyState,
   ProgressBar,
-  ProjectAvatar,
   Skeleton,
   Spinner,
   Surface,
 } from '@/components/ui';
 import { Page } from '@/app/shell/Page';
 import { useOnline } from '@/app/hooks/useOnline';
+import type { Point, Viewport } from '@/core/brain/graph';
+import { SYNTHETIC_SIZES, syntheticGraph } from '@/core/brain/synthetic';
 import { formatBytes } from '@/core/format';
+import { seededRandom } from '@/core/session';
 import { useLiveData } from '@/data/live';
-import { brainRepo, type CrossProjectLink, type EmbeddingStatus } from '@/data/repositories';
+import { brainRepo, graphPositionsRepo, type EmbeddingStatus } from '@/data/repositories';
 import { useSettings } from '@/features/settings/settingsStore';
 import { de } from '@/i18n/de';
 import { brainSync, embedderModel, MODEL_DOWNLOAD_MB, useBrainSync } from '@/services/brain';
 import { spring } from '@/styles/motion';
+import { useReducedMotion } from '@/styles/useReducedMotion';
+import type { BrainGraphHandle } from './BrainGraph';
+import { BrainControls, BrainLegend, glass } from './BrainOverlays';
+import { BrainGraphModel } from './graphModel';
+
+// Canvas, d3-force and the renderer: own chunk, loaded with the brain.
+const BrainGraph = lazy(() => import('./BrainGraph'));
 
 const t = de.pages.brain;
+const g = t.graph;
 
 const percent = new Intl.NumberFormat('de-DE', { style: 'percent', maximumFractionDigits: 0 });
 
-const appear = (index: number) => ({
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  transition: { ...spring.soft, delay: index * 0.06 },
-});
+/** Free space around the graph when fitting (title on top, controls at the bottom). */
+const FIT_PADDING: Viewport['padding'] = { top: 96, right: 40, bottom: 112, left: 40 };
+const NO_POSITIONS: ReadonlyMap<string, Point> = new Map();
 
 function useBrainStatus(): EmbeddingStatus | undefined {
   const embedder = useSettings((s) => s.brainEmbedder);
@@ -41,14 +52,28 @@ function useBrainStatus(): EmbeddingStatus | undefined {
   );
 }
 
+/** Developer mode: ?synthetic=2000 shows synthetic data of that size (never stored). */
+function useSyntheticSize(): [number | null, (nodes: number | null) => void] {
+  const devMode = useSettings((s) => s.devMode);
+  const [params, setParams] = useSearchParams();
+  const value = Number(params.get('synthetic'));
+  const size = devMode && SYNTHETIC_SIZES.some((s) => s.nodes === value) ? value : null;
+  const set = (nodes: number | null) =>
+    setParams(nodes === null ? {} : { synthetic: String(nodes) }, { replace: true });
+  return [size, set];
+}
+
 export function BrainPage() {
   const loaded = useSettings((s) => s.loaded);
   const status = useBrainStatus();
+  const [syntheticSize] = useSyntheticSize();
 
   // Opening the brain brings it up to date (without downloading the model).
   useEffect(() => {
     if (loaded) void brainSync.run();
   }, [loaded]);
+
+  if (syntheticSize !== null) return <BrainView status={status ?? null} />;
 
   if (status === undefined) {
     return (
@@ -69,19 +94,209 @@ export function BrainPage() {
     );
   }
 
-  return (
-    <Page title={t.title} width="narrow">
-      <div className="flex flex-col gap-5" data-testid="brain-page">
-        <motion.div {...appear(0)}>
+  if (status.current === 0) {
+    return (
+      <Page title={t.title} width="narrow">
+        <motion.div
+          data-testid="brain-page"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={spring.soft}
+        >
           <StatusCard status={status} />
         </motion.div>
-        {status.current > 0 && (
-          <motion.div {...appear(1)}>
-            <CrossProjectSection />
-          </motion.div>
+      </Page>
+    );
+  }
+
+  return <BrainView status={status} />;
+}
+
+/** The knowledge map: full-bleed canvas with floating title, controls and legend. */
+function BrainView({ status }: { status: EmbeddingStatus | null }) {
+  const devMode = useSettings((s) => s.devMode);
+  const reducedMotion = useReducedMotion();
+  const [syntheticSize, setSyntheticSize] = useSyntheticSize();
+  const data = useLiveData(() => brainRepo.getGraphData(), []);
+  const [positions, setPositions] = useState<ReadonlyMap<string, Point> | null>(null);
+  const [model] = useState(() => new BrainGraphModel());
+  const graphRef = useRef<BrainGraphHandle>(null);
+  const [confirmRearrange, setConfirmRearrange] = useState(false);
+
+  // Stored layout: read once (saving it must not rebuild the graph).
+  useEffect(() => {
+    let active = true;
+    void graphPositionsRepo.list().then((list) => {
+      if (active) setPositions(new Map(list.map((p) => [p.nodeId, { x: p.x, y: p.y }])));
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const synthetic = useMemo(() => {
+    const size = SYNTHETIC_SIZES.find((s) => s.nodes === syntheticSize);
+    if (!size) return null;
+    const syntheticModel = new BrainGraphModel();
+    return syntheticModel.update(syntheticGraph(size, seededRandom(13)), NO_POSITIONS);
+  }, [syntheticSize]);
+
+  const real = useMemo(
+    () => (data && positions ? model.update(data, positions) : null),
+    [model, data, positions],
+  );
+  const snapshot = synthetic ?? real;
+  const projects = synthetic ? [] : (data?.projects ?? []);
+  const semantic = snapshot?.links.filter((link) => link.kind !== 'hub') ?? [];
+  const cards = snapshot?.nodes.filter((node) => node.kind === 'card').length ?? 0;
+  const pixelRatio = Math.min(2, (snapshot?.nodes.length ?? 0) > 1500 ? 1.5 : 2);
+
+  return (
+    <div className="relative h-full overflow-hidden" data-testid="brain-page">
+      {snapshot ? (
+        <Suspense fallback={null}>
+          <BrainGraph
+            key={synthetic ? `synthetic-${syntheticSize}` : 'real'}
+            snapshot={snapshot}
+            persist={!synthetic}
+            pixelRatio={pixelRatio}
+            reducedMotion={reducedMotion}
+            devMode={devMode}
+            padding={FIT_PADDING}
+            handle={graphRef}
+          />
+        </Suspense>
+      ) : (
+        <div className="brain-backdrop absolute inset-0" aria-busy>
+          <span className="sr-only">{t.loading}</span>
+        </div>
+      )}
+
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-start gap-2 px-[max(1rem,env(safe-area-inset-left))] pt-[max(1rem,env(safe-area-inset-top))]">
+        <div className={cn('pointer-events-auto flex flex-col rounded-2xl px-4 py-2.5', glass)}>
+          <h1 className="text-lg font-semibold tracking-tight text-fg">{g.title}</h1>
+          <p className="text-xs text-fg-secondary tabular-nums" data-testid="brain-stats">
+            {g.stats(cards, semantic.length, semantic.filter((link) => link.cross).length)}
+          </p>
+        </div>
+        {synthetic && syntheticSize !== null && (
+          <p
+            className="rounded-full bg-warning-soft px-3 py-1 text-xs font-medium text-fg"
+            data-testid="brain-synthetic"
+          >
+            {g.syntheticBadge(
+              syntheticSize,
+              SYNTHETIC_SIZES.find((s) => s.nodes === syntheticSize)?.edges ?? 0,
+            )}
+          </p>
         )}
+        {!synthetic && status && <SyncPill status={status} />}
       </div>
-    </Page>
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-center px-[max(1rem,env(safe-area-inset-left))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))]">
+          <BrainLegend projects={projects} />
+        </div>
+        <BrainControls
+          onZoomIn={() => graphRef.current?.zoomIn()}
+          onZoomOut={() => graphRef.current?.zoomOut()}
+          onFit={() => graphRef.current?.fit()}
+          onRearrange={() => setConfirmRearrange(true)}
+          devMode={devMode}
+          syntheticSize={syntheticSize}
+          onSynthetic={setSyntheticSize}
+        />
+      </div>
+
+      <ConfirmDialog
+        open={confirmRearrange}
+        onClose={() => setConfirmRearrange(false)}
+        onConfirm={() => {
+          graphRef.current?.rearrange();
+          setConfirmRearrange(false);
+        }}
+        title={g.rearrangeTitle}
+        message={g.rearrangeText}
+        confirmLabel={g.rearrange}
+        variant="primary"
+      />
+    </div>
+  );
+}
+
+/** Small status line under the title: analysis running, cards waiting for the model, errors. */
+function SyncPill({ status }: { status: EmbeddingStatus }) {
+  const phase = useBrainSync((s) => s.phase);
+  const error = useBrainSync((s) => s.error);
+  const embedded = useBrainSync((s) => s.embedded);
+  const embedder = useSettings((s) => s.brainEmbedder);
+  const online = useOnline();
+
+  let content: React.ReactNode = null;
+  if (phase === 'error' && error) {
+    content = (
+      <>
+        <span className="text-danger">{t.errors[error]}</span>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={RotateCw}
+          onClick={() => void brainSync.run({ allowDownload: true })}
+        >
+          {t.errors.retry}
+        </Button>
+      </>
+    );
+  } else if (phase === 'downloading' || phase === 'embedding' || phase === 'linking') {
+    content = (
+      <>
+        <Spinner size={16} />
+        <span>
+          {phase === 'embedding'
+            ? `${t.phase.embedding} ${t.phase.embeddingCount(embedded.done, embedded.total)}`
+            : phase === 'downloading'
+              ? t.phase.downloading
+              : t.phase.linking}
+        </span>
+      </>
+    );
+  } else if (status.pending > 0 && embedder === 'model') {
+    content = (
+      <>
+        <span>{g.pending(status.pending)}</span>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={Download}
+          disabled={!online}
+          onClick={() => void brainSync.run({ allowDownload: true })}
+        >
+          {g.loadModel}
+        </Button>
+      </>
+    );
+  }
+
+  return (
+    <AnimatePresence>
+      {content && (
+        <motion.div
+          key="sync"
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={spring.default}
+          aria-live="polite"
+          data-testid="brain-sync"
+          className={cn(
+            'pointer-events-auto flex max-w-[min(32rem,calc(100vw-2rem))] items-center gap-2.5 rounded-full py-1.5 pr-1.5 pl-3.5 text-sm text-fg',
+            glass,
+          )}
+        >
+          {content}
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -110,11 +325,8 @@ function StatusCard({ status }: { status: EmbeddingStatus }) {
     return <ProgressCard />;
   }
 
-  if (status.pending > 0 && status.current === 0 && embedder === 'model') {
-    return <SetupCard />;
-  }
-
-  return <SummaryCard status={status} />;
+  if (status.pending > 0 && embedder === 'model') return <SetupCard />;
+  return <ProgressCard />;
 }
 
 function SetupCard() {
@@ -176,92 +388,6 @@ function ProgressCard() {
       </div>
       <ProgressBar value={value} label={title} />
       <p className="text-sm text-fg-secondary tabular-nums">{detail}</p>
-    </Surface>
-  );
-}
-
-function Stat({ value, label, accent }: { value: ReactNode; label: string; accent?: boolean }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className={`text-3xl font-semibold tabular-nums ${accent ? 'text-accent' : 'text-fg'}`}>
-        {value}
-      </span>
-      <span className="text-sm text-fg-secondary">{label}</span>
-    </div>
-  );
-}
-
-function SummaryCard({ status }: { status: EmbeddingStatus }) {
-  const summary = useLiveData(() => brainRepo.linkSummary(), []);
-  return (
-    <Surface className="flex flex-col gap-5" data-testid="brain-summary">
-      <h2 className="text-lg font-semibold text-fg">{t.summary.title}</h2>
-      <div className="grid grid-cols-3 gap-4">
-        <Stat value={status.current} label={t.summary.cards} />
-        <Stat value={summary?.links ?? '–'} label={t.summary.links} />
-        <Stat value={summary?.crossProject ?? '–'} label={t.summary.cross} accent />
-      </div>
-      {status.pending > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-accent-soft px-4 py-3">
-          <span className="text-sm text-fg">{t.summary.pending(status.pending)}</span>
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={Download}
-            onClick={() => void brainSync.run({ allowDownload: true })}
-          >
-            {t.setup.action(MODEL_DOWNLOAD_MB)}
-          </Button>
-        </div>
-      )}
-      <p className="text-sm text-fg-muted">{t.summary.preview}</p>
-    </Surface>
-  );
-}
-
-function CardLabel({ side }: { side: CrossProjectLink['source'] }) {
-  return (
-    <span className="flex min-w-0 items-center gap-2">
-      <ProjectAvatar color={side.project.color} icon={side.project.icon} size={22} />
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate text-base font-semibold text-fg">{side.card.front}</span>
-        <span className="truncate text-xs text-fg-muted">{side.project.name}</span>
-      </span>
-    </span>
-  );
-}
-
-function CrossProjectSection() {
-  const links = useLiveData(() => brainRepo.topCrossProjectLinks(10), []);
-  if (links === undefined) return null;
-  return (
-    <Surface className="flex flex-col gap-3">
-      <div className="flex flex-col gap-0.5">
-        <h2 className="text-lg font-semibold text-fg">{t.cross.title}</h2>
-        <p className="text-sm text-fg-secondary">{t.cross.subtitle}</p>
-      </div>
-      {links.length === 0 ? (
-        <p className="text-base text-fg-secondary">{t.cross.empty}</p>
-      ) : (
-        <ol className="flex flex-col divide-y divide-line" data-testid="brain-cross-links">
-          {links.map((link) => (
-            <li
-              key={`${link.source.card.id}-${link.target.card.id}`}
-              className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-3 py-2.5"
-            >
-              <CardLabel side={link.source} />
-              <Link2 size={16} aria-hidden className="text-fg-muted" />
-              <CardLabel side={link.target} />
-              <span
-                className="rounded-full bg-accent-soft px-2.5 py-1 text-sm font-semibold text-accent tabular-nums"
-                title={t.cross.similarity}
-              >
-                {percent.format(link.weight)}
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
     </Surface>
   );
 }

@@ -526,11 +526,43 @@ async function brainDownload(page: Page) {
 }
 
 /** Embeddings and links computed with the developer test embedder (no model download). */
-async function brainSummary(page: Page) {
+async function brainOverview(page: Page) {
   await page.context().unroute(/huggingface\.co|\.hf\.co/);
+  await ensureHistory(page);
   await setBrainEmbedder(page, 'Test ohne Download');
+  await page
+    .getByTestId('brain-settings-status')
+    .filter({ hasText: /^90 von 90 .* [1-9]\d* Verbindungen$/ })
+    .waitFor({ timeout: 30_000 });
   await page.goto(`${PREVIEW_URL}#/brain`);
-  await page.getByTestId('brain-cross-links').waitFor({ timeout: 30_000 });
+  await page.getByTestId('brain-graph').waitFor();
+  await page.waitForFunction(() => window.__synapseBrain?.engineRunning() === false, null, {
+    timeout: 60_000,
+  });
+  await page.waitForTimeout(900);
+}
+
+/** Zoomed in: card labels appear. */
+async function brainZoomed(page: Page) {
+  await brainOverview(page);
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Hineinzoomen' }).click();
+  await page.waitForTimeout(600);
+}
+
+async function brainLegend(page: Page) {
+  await brainOverview(page);
+  await page.getByRole('button', { name: 'Legende' }).click();
+}
+
+/** Synthetic performance data (developer mode, not stored). */
+async function brainSynthetic(page: Page) {
+  await page.goto(`${PREVIEW_URL}#/brain?synthetic=3000`);
+  await page.getByTestId('brain-graph').waitFor();
+  await page.waitForFunction(() => window.__synapseBrain?.engineRunning() === false, null, {
+    timeout: 120_000,
+  });
+  await page.getByRole('button', { name: 'Alles einpassen' }).click();
+  await page.waitForTimeout(900);
 }
 
 async function settingsBrain(page: Page) {
@@ -581,7 +613,10 @@ const SHOTS: Shot[] = [
   { route: '/projects', name: 'project-mastery', prepare: projectMastery },
   { route: '/brain', name: 'brain-setup', prepare: brainSetup },
   { route: '/brain', name: 'brain-download', prepare: brainDownload },
-  { route: '/brain', name: 'brain-summary', prepare: brainSummary, scroll: true },
+  { route: '/brain', name: 'brain-overview', prepare: brainOverview },
+  { route: '/brain', name: 'brain-zoomed', prepare: brainZoomed },
+  { route: '/brain', name: 'brain-legend', prepare: brainLegend },
+  { route: '/brain', name: 'brain-synthetic', prepare: brainSynthetic },
   { route: '/settings', name: 'brain-settings', prepare: settingsBrain },
 ];
 

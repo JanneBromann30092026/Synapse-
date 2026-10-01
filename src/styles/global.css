@@ -185,3 +185,30 @@
 :root[data-reduce-motion] .card-pulse {
   animation: none;
 }
+
+/* Brain: calm radial backdrop and a fine dot grid (shifted slightly on pan, see BrainGraph). */
+.brain-backdrop {
+  background: radial-gradient(120% 90% at 50% 42%, #ffffff 0%, var(--bg) 62%, #eceef3 100%);
+}
+.brain-dots {
+  background-image: radial-gradient(circle, rgba(15, 20, 30, 0.07) 1px, transparent 1.4px);
+  background-size: 26px 26px;
+}
+:root[data-theme='dark'] .brain-backdrop {
+  background: radial-gradient(120% 90% at 50% 42%, #151a28 0%, #0b0d12 58%, #06070a 100%);
+}
+:root[data-theme='dark'] .brain-dots {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.055) 1px, transparent 1.4px);
+}
+
+/* Rules of force-graph / float-tooltip (their own <style> injection is removed for the CSP). */
+.force-graph-container canvas {
+  display: block;
+  user-select: none;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.float-tooltip-kap {
+  position: absolute;
+  pointer-events: none;
+}

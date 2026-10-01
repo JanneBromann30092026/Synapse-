@@ -348,24 +348,43 @@ export const de = {
         links: 'Die Verknüpfungen konnten nicht berechnet werden.',
         retry: 'Erneut versuchen',
       },
-      summary: {
-        title: 'Wissensnetz',
-        cards: 'Karten analysiert',
-        links: 'Verbindungen',
-        cross: 'projektübergreifend',
+      graph: {
+        title: 'Gehirn',
+        stats: (cards: number, links: number, cross: number) =>
+          `${cards} Karten · ${links} Verbindungen · ${cross} projektübergreifend`,
+        canvasLabel: (cards: number, links: number) =>
+          `Wissenskarte mit ${cards} Karten und ${links} Verbindungen`,
         pending: (n: number) =>
           n === 1
-            ? '1 Karte wartet auf das Sprachmodell.'
-            : `${n} Karten warten auf das Sprachmodell.`,
-        preview:
-          'Vorschau: Hier entsteht die Wissenskarte. Schon jetzt siehst du, welche Karten das Gehirn verbindet.',
-      },
-      cross: {
-        title: 'Stärkste projektübergreifende Verbindungen',
-        subtitle: 'Karten aus verschiedenen Projekten mit ähnlicher Bedeutung.',
-        empty:
-          'Noch keine projektübergreifenden Verbindungen. Sie entstehen, wenn sich Karten verschiedener Projekte inhaltlich ähneln.',
-        similarity: 'Ähnlichkeit',
+            ? '1 Karte wartet auf das Sprachmodell'
+            : `${n} Karten warten auf das Sprachmodell`,
+        loadModel: 'Modell laden',
+        controls: 'Gehirn steuern',
+        zoomIn: 'Hineinzoomen',
+        zoomOut: 'Herauszoomen',
+        fit: 'Alles einpassen',
+        rearrange: 'Neu anordnen',
+        rearrangeTitle: 'Gehirn neu anordnen?',
+        rearrangeText:
+          'Alle Knoten werden neu verteilt und das Netz ordnet sich neu. Von Hand verschobene Positionen gehen dabei verloren.',
+        fullscreen: 'Vollbild',
+        exitFullscreen: 'Vollbild beenden',
+        legend: 'Legende',
+        legendMastery: 'Beherrschung',
+        legendLinks: 'Verbindungen',
+        legendProjects: 'Projekte',
+        linkIntra: 'Im Projekt',
+        linkCross: 'Projektübergreifend',
+        linkManual: 'Manuell',
+        hint: 'Ziehen verschiebt, zwei Finger zoomen, Doppeltippen passt alles ein. Knoten gedrückt halten und ziehen, um sie zu verschieben.',
+        synthetic: 'Testdaten',
+        syntheticOption: (nodes: number, edges: number) =>
+          `${nodes.toLocaleString('de-DE')} Knoten / ${edges.toLocaleString('de-DE')} Kanten`,
+        realData: 'Echte Daten',
+        syntheticBadge: (nodes: number, edges: number) =>
+          `Synthetisch: ${nodes.toLocaleString('de-DE')} Knoten · ${edges.toLocaleString('de-DE')} Kanten · nicht gespeichert`,
+        devFrame: (mean: number, p95: number, nodes: number) =>
+          `Zeichnen Ø ${mean.toFixed(1)} ms · p95 ${p95.toFixed(1)} ms · ${nodes} Knoten`,
       },
     },
     stats: {
