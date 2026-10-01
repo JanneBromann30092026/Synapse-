@@ -102,6 +102,15 @@ export const de = {
       emptyTitle: 'Noch keine Karten',
       emptyText: 'Lege deine erste Karteikarte an – Vorderseite, Rückseite, fertig.',
       emptyAction: 'Erste Karte anlegen',
+      import: 'Importieren',
+      importTitle: (n: number) => (n === 1 ? '1 Karte importieren?' : `${n} Karten importieren?`),
+      importMessage: (file: string, invalid: number) =>
+        `Aus „${file}“. Karten mit gleicher Vorderseite werden übersprungen.` +
+        (invalid > 0
+          ? ` ${invalid === 1 ? '1 Zeile ohne' : `${invalid} Zeilen ohne`} Vorder- oder Rückseite wird ignoriert.`
+          : ''),
+      importConfirm: 'Importieren',
+      importEmpty: 'In der Datei wurden keine Karten gefunden (erwartet: Vorderseite, Rückseite).',
       search: 'Karten durchsuchen',
       searchPlaceholder: 'Vorderseite, Rückseite, Notizen, Tags …',
       noResults: 'Keine Karten gefunden. Passe Suche oder Tag-Filter an.',
@@ -134,6 +143,10 @@ export const de = {
         moved: (n: number, project: string) =>
           `${n === 1 ? '1 Karte' : `${n} Karten`} nach „${project}“ verschoben`,
         saved: 'Karte gespeichert',
+        imported: (n: number, skipped: number) =>
+          `${n === 1 ? '1 Karte' : `${n} Karten`} importiert` +
+          (skipped > 0 ? ` · ${skipped} doppelt, übersprungen` : ''),
+        importFailed: 'Die Datei konnte nicht gelesen werden.',
         failed: 'Das hat nicht geklappt. Bitte erneut versuchen.',
       },
     },
