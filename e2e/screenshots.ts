@@ -532,7 +532,7 @@ async function brainOverview(page: Page) {
   await setBrainEmbedder(page, 'Test ohne Download');
   await page
     .getByTestId('brain-settings-status')
-    .filter({ hasText: /^90 von 90 .* [1-9]\d* Verbindungen$/ })
+    .filter({ hasText: /^(\d+) von \1 Karten analysiert · [1-9]\d* Verbindungen$/ })
     .waitFor({ timeout: 30_000 });
   await page.goto(`${PREVIEW_URL}#/brain`);
   await page.getByTestId('brain-graph').waitFor();
@@ -737,7 +737,11 @@ async function settingsBrain(page: Page) {
 }
 
 async function settingsErrorLog(page: Page) {
-  // One example entry so the count is visible.
+  // Earlier shots provoke errors on purpose (failing AI, blocked download): start empty,
+  // then one example entry so the count is visible.
+  const clear = page.getByRole('button', { name: 'Leeren' });
+  if (await clear.isEnabled()) await clear.click();
+  await page.getByTestId('error-log-count').filter({ hasText: 'Keine Einträge' }).waitFor();
   await page.evaluate(() => console.error('Beispielfehler für den Screenshot'));
   await page.getByTestId('error-log-count').filter({ hasText: /Eintr/ }).waitFor();
   await page.getByTestId('settings-error-log').evaluate((element) => {
