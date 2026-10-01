@@ -57,4 +57,10 @@ export interface BrainDebug {
   /** Screen position (relative to the canvas) of a node, e.g. to drag it in tests. */
   nodeScreen: (id: string) => { x: number; y: number } | null;
   zoom: () => number;
+  /** Screen position of the middle of a visible link (on the curve for cross-project links). */
+  linkScreen: (id: string) => { x: number; y: number } | null;
+  /** Visible card links (semantic and manual). */
+  cardLinks: () => { id: string; kind: string; cross: boolean; a: string; b: string }[];
+  /** A camera flight is still running. */
+  cameraMoving: () => boolean;
 }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { embeddingText, embeddingTextHash } from '@/core/brain/text';
 import type { LinkOptions, SemanticLink } from '@/core/brain/links';
-import type { Mastery } from '@/core/mastery';
+import { computeMastery, type Mastery } from '@/core/mastery';
 import { db } from '../db';
 import type { Card, CardLink, LinkKind, Project } from '../types';
 import { newId, nowIso } from '../util';
@@ -69,6 +69,28 @@ export interface GraphData {
   cards: GraphCardNode[];
   edges: GraphEdge[];
 }
+
+export interface CardDetailLink {
+  linkId: string;
+  kind: LinkKind;
+  weight: number;
+  card: Card;
+  project: Project;
+  crossProject: boolean;
+}
+
+export interface CardDetail {
+  card: Card;
+  project: Project;
+  mastery: Mastery;
+  /** Last answers, newest first. */
+  recent: { id: string; verdict: 'correct' | 'incorrect'; answeredAt: string }[];
+  /** Linked brain cards, most similar first (manual links count as 1). */
+  links: CardDetailLink[];
+}
+
+/** Number of answers shown as history in the brain detail panel. */
+export const DETAIL_RECENT_ANSWERS = 12;
 
 export interface CrossProjectLink {
   weight: number;
@@ -294,6 +316,62 @@ export const brainRepo = {
             weight: link.weight,
             crossProject: projectOf.get(link.sourceCardId) !== projectOf.get(link.targetCardId),
           })),
+      };
+    });
+  },
+
+  /** Everything the detail panel shows for a card; undefined when it left the brain. */
+  async getCardDetail(cardId: string, now = Date.now()): Promise<CardDetail | undefined> {
+    return readQuery(async () => {
+      const card = await db.cards.get(cardId);
+      if (!card) return undefined;
+      const project = await db.projects.get(card.projectId);
+      if (!project || !isBrainProject(project)) return undefined;
+      const [answers, outgoing, incoming] = await Promise.all([
+        db.answers.where('[cardId+answeredAt]').between([cardId, ''], [cardId, '\uffff']).toArray(),
+        db.cardLinks.where('sourceCardId').equals(cardId).toArray(),
+        db.cardLinks.where('targetCardId').equals(cardId).toArray(),
+      ]);
+      const links = [...outgoing, ...incoming];
+      const otherIds = links.map((link) =>
+        link.sourceCardId === cardId ? link.targetCardId : link.sourceCardId,
+      );
+      const others = await db.cards.bulkGet(otherIds);
+      const projectIds = [...new Set(others.flatMap((other) => (other ? [other.projectId] : [])))];
+      const projects = await db.projects.bulkGet(projectIds);
+      const projectById = new Map(
+        projects.flatMap((p) => (p && isBrainProject(p) ? [[p.id, p] as const] : [])),
+      );
+      const mastery = masteries([card], answers, now)[0]?.mastery ?? computeMastery([], now);
+      return {
+        card,
+        project,
+        mastery,
+        recent: answers
+          .slice(-DETAIL_RECENT_ANSWERS)
+          .reverse()
+          .map((answer) => ({
+            id: answer.id,
+            verdict: answer.verdict,
+            answeredAt: answer.answeredAt,
+          })),
+        links: links
+          .flatMap((link, index): CardDetailLink[] => {
+            const other = others[index];
+            const otherProject = other ? projectById.get(other.projectId) : undefined;
+            if (!other || !otherProject) return [];
+            return [
+              {
+                linkId: link.id,
+                kind: link.kind,
+                weight: link.weight,
+                card: other,
+                project: otherProject,
+                crossProject: otherProject.id !== project.id,
+              },
+            ];
+          })
+          .sort((a, b) => b.weight - a.weight || a.card.front.localeCompare(b.card.front, 'de')),
       };
     });
   },

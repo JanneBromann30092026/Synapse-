@@ -15,8 +15,10 @@ import ForceGraph2D, {
   type NodeObject,
 } from 'react-force-graph-2d';
 import { summarizeFrames, FrameRecorder, type BrainDebug } from '@/core/brain/frames';
+import { focusCenter, linkAt, type Neighborhood } from '@/core/brain/interaction';
 import {
   chargeStrength,
+  curvePoint,
   fitTransform,
   freeze,
   graphBounds,
@@ -24,14 +26,27 @@ import {
   linkStrength,
   nodeAt,
   seedLayout,
+  type BrainGraph as BrainGraphData,
   type BrainLink,
   type BrainNode,
+  type Point,
   type Viewport,
 } from '@/core/brain/graph';
 import { graphPositionsRepo } from '@/data/repositories';
 import { de } from '@/i18n/de';
 import type { GraphSnapshot } from './graphModel';
-import { buildScene, drawFrame, readPalette, type Impulse } from './render';
+import {
+  buildScene,
+  CROSS_CURVATURE,
+  drawFrame,
+  LINK_GROW_MS,
+  PULSE_MS,
+  readPalette,
+  type FrameInput,
+  type Impulse,
+  type Pulse,
+  type Scene,
+} from './render';
 
 const t = de.pages.brain.graph;
 
@@ -40,10 +55,36 @@ export interface BrainGraphHandle {
   zoomOut: () => void;
   fit: () => void;
   rearrange: () => void;
+  /** Flies to a node so that it and its related nodes (neighbors) fit next to the panel. */
+  focusNode: (id: string, related?: readonly string[]) => void;
+  /** Flies to the cluster of a project. */
+  focusCluster: (projectId: string) => void;
+  /** Lets nodes pulse briefly (search hits). */
+  pulse: (ids: readonly string[]) => void;
+  /** Screen position (relative to the view) of a node. */
+  nodeScreen: (id: string) => Point | null;
+}
+
+/** Focus mode: the selected node and its neighborhood stay bright. */
+export interface BrainFocus extends Neighborhood {
+  id: string;
+  kind: 'card' | 'hub' | 'link';
 }
 
 export interface BrainGraphProps {
   snapshot: GraphSnapshot;
+  /** The filtered part of the snapshot that is drawn and can be tapped. */
+  visible: BrainGraphData;
+  focus: BrainFocus | null;
+  selectedLinkId: string | null;
+  /** Free space when flying to a node (padding plus the open panel). */
+  focusPadding: Viewport['padding'];
+  onSelectNode: (node: BrainNode) => void;
+  onSelectLink: (link: BrainLink, at: Point) => void;
+  /** Single tap on empty space. */
+  onBackgroundTap: () => void;
+  /** Mouse/trackpad hover over a card (null when the pointer leaves it). */
+  onHover: (node: BrainNode | null) => void;
   /** Store positions in graphPositions (off for synthetic data). */
   persist: boolean;
   /** Upper bound of the canvas resolution (device pixels per CSS pixel). */
@@ -69,6 +110,33 @@ const COOLDOWN_TICKS = 320;
 const IMPULSE_EVERY_MS = 1500;
 const IMPULSE_DURATION_MS = 1700;
 const PARALLAX = 0.05;
+/** Zoom used when flying to a single node. */
+const FOCUS_ZOOM = 2.4;
+const CAMERA_MS = 650;
+/** How dark the rest of the graph gets in focus mode (0..1). */
+const DIM_DEPTH = 0.85;
+const DIM_MS = 380;
+const FILTER_FADE_MS = 320;
+const LINK_TOLERANCE_PX = 12;
+
+const easeOut = (t: number) => 1 - (1 - Math.min(1, Math.max(0, t))) ** 3;
+
+interface Fade {
+  from: number;
+  to: number;
+  start: number;
+}
+
+function fadeValue(fade: Fade, now: number, duration: number): number {
+  return fade.from + (fade.to - fade.from) * easeOut((now - fade.start) / duration);
+}
+
+function subgraph(graph: BrainGraphData, focus: Neighborhood): BrainGraphData {
+  return {
+    nodes: graph.nodes.filter((node) => focus.nodeIds.has(node.id)),
+    links: graph.links.filter((link) => focus.linkIds.has(link.id)),
+  };
+}
 
 /** Caps window.devicePixelRatio (force-graph reads it for the canvas size). */
 function capPixelRatio(max: number): () => void {
@@ -126,6 +194,14 @@ declare global {
  */
 export default function BrainGraph({
   snapshot,
+  visible,
+  focus,
+  selectedLinkId,
+  focusPadding,
+  onSelectNode,
+  onSelectLink,
+  onBackgroundTap,
+  onHover,
   persist,
   pixelRatio,
   reducedMotion,
@@ -146,6 +222,19 @@ export default function BrainGraph({
   const engineRunningRef = useRef(false);
   const fittedRef = useRef(false);
   const recorders = useRef({ draw: new FrameRecorder(), interval: new FrameRecorder(), last: 0 });
+  const downRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressClickRef = useRef(0);
+  const hoverRef = useRef<{ id: string | null; frame: number }>({ id: null, frame: 0 });
+  const animUntilRef = useRef(0);
+  const animLoopRef = useRef(0);
+  const cameraUntilRef = useRef(0);
+  const dimRef = useRef<Fade>({ from: 0, to: 0, start: 0 });
+  const overlayRef = useRef<{ scene: Scene; focus: BrainFocus; start: number } | null>(null);
+  const transitionRef = useRef<{ from: Scene; start: number } | null>(null);
+  const lastSceneRef = useRef<Scene | null>(null);
+  const pulsesRef = useRef<Pulse[]>([]);
+  const linkBornRef = useRef(new Map<string, number>());
+  const knownManualRef = useRef<Set<string> | null>(null);
 
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const [animating, setAnimating] = useState(false);
@@ -154,7 +243,11 @@ export default function BrainGraph({
 
   const theme = useTheme();
   const palette = useMemo(() => readPalette(theme === 'dark'), [theme]);
-  const scene = useMemo(() => buildScene(snapshot), [snapshot]);
+  const scene = useMemo(() => buildScene(visible), [visible]);
+  const focusScene = useMemo(
+    () => (focus ? buildScene(subgraph(visible, focus)) : null),
+    [visible, focus],
+  );
 
   const containerRef = useCallback(
     (element: HTMLDivElement | null) => {
@@ -192,8 +285,45 @@ export default function BrainGraph({
   /** force-graph only redraws on its own events; a no-op zoom forces one frame. */
   const requestRedraw = useCallback(() => {
     const fg = fgRef.current;
-    if (fg) fg.zoom(fg.zoom());
+    // A no-op zoom would interrupt a running camera flight (which redraws anyway).
+    if (fg && performance.now() >= cameraUntilRef.current) fg.zoom(fg.zoom());
   }, []);
+
+  /** Redraws every frame for a while (focus fades, pulses, growing links). */
+  const animateFor = useCallback(
+    (ms: number) => {
+      animUntilRef.current = Math.max(animUntilRef.current, performance.now() + ms);
+      if (animLoopRef.current) return;
+      const tick = () => {
+        requestRedraw();
+        animLoopRef.current =
+          performance.now() < animUntilRef.current ? requestAnimationFrame(tick) : 0;
+      };
+      animLoopRef.current = requestAnimationFrame(tick);
+    },
+    [requestRedraw],
+  );
+
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(animLoopRef.current);
+      animLoopRef.current = 0;
+    },
+    [],
+  );
+
+  const moveCamera = useCallback(
+    (center: Point, k: number, durationMs: number) => {
+      const fg = fgRef.current;
+      if (!fg) return;
+      const ms = reducedMotion ? 0 : durationMs;
+      cameraUntilRef.current = performance.now() + ms + 30;
+      fg.centerAt(center.x, center.y, ms);
+      fg.zoom(k, ms);
+      animateFor(ms + 60);
+    },
+    [reducedMotion, animateFor],
+  );
 
   const fit = useCallback(
     (durationMs: number) => {
@@ -205,11 +335,9 @@ export default function BrainGraph({
         { width: size.width, height: size.height, padding },
         { min: ZOOM_RANGE.min, max: FIT_MAX_ZOOM },
       );
-      const ms = reducedMotion ? 0 : durationMs;
-      fg.centerAt(center.x, center.y, ms);
-      fg.zoom(k, ms);
+      moveCamera(center, k, durationMs);
     },
-    [snapshot, size, padding, reducedMotion],
+    [snapshot, size, padding, moveCamera],
   );
 
   const zoomBy = useCallback(
@@ -235,9 +363,97 @@ export default function BrainGraph({
         setRearranging(true);
         setLayoutRun((run) => run + 1);
       },
+      focusNode: (id, related = []) => {
+        const fg = fgRef.current;
+        const node = snapshot.nodes.find((n) => n.id === id);
+        if (!fg || !node || node.x === undefined || node.y === undefined) return;
+        const wanted = new Set(related);
+        const bounds = graphBounds(snapshot.nodes.filter((n) => wanted.has(n.id) || n === node));
+        if (wanted.size > 0 && bounds && size) {
+          const pad = 40;
+          const fitted = fitTransform(
+            { x0: bounds.x0 - pad, y0: bounds.y0 - pad, x1: bounds.x1 + pad, y1: bounds.y1 + pad },
+            { width: size.width, height: size.height, padding: focusPadding },
+            { min: ZOOM_RANGE.min, max: FOCUS_ZOOM },
+          );
+          moveCamera(fitted.center, fitted.k, CAMERA_MS);
+          return;
+        }
+        const k = Math.min(ZOOM_RANGE.max, Math.max(fg.zoom(), FOCUS_ZOOM));
+        moveCamera(focusCenter({ x: node.x, y: node.y }, focusPadding, k), k, CAMERA_MS);
+      },
+      focusCluster: (projectId) => {
+        const bounds = graphBounds(visible.nodes.filter((n) => n.projectId === projectId));
+        if (!bounds || !size) return;
+        const { k, center } = fitTransform(
+          bounds,
+          { width: size.width, height: size.height, padding: focusPadding },
+          { min: ZOOM_RANGE.min, max: FIT_MAX_ZOOM },
+        );
+        moveCamera(center, k, CAMERA_MS);
+      },
+      pulse: (ids) => {
+        if (ids.length === 0 || reducedMotion) return;
+        const now = performance.now();
+        pulsesRef.current = [
+          ...pulsesRef.current.filter((p) => now - p.start < PULSE_MS),
+          { ids: new Set(ids), start: now },
+        ];
+        animateFor(PULSE_MS);
+      },
+      nodeScreen: (id) => {
+        const node = snapshot.nodes.find((n) => n.id === id);
+        const fg = fgRef.current;
+        if (!node || !fg || node.x === undefined || node.y === undefined) return null;
+        return fg.graph2ScreenCoords(node.x, node.y);
+      },
     }),
-    [zoomBy, fit, snapshot],
+    [zoomBy, fit, snapshot, visible, size, focusPadding, moveCamera, animateFor, reducedMotion],
   );
+
+  // Focus mode: dim the rest, fade the neighborhood in (and out again when it closes).
+  useEffect(() => {
+    const now = performance.now();
+    const dim = fadeValue(dimRef.current, now, DIM_MS);
+    if (focus && focusScene) {
+      const same = overlayRef.current?.focus.id === focus.id;
+      overlayRef.current = {
+        scene: focusScene,
+        focus,
+        start: same ? (overlayRef.current?.start ?? now) : now,
+      };
+      dimRef.current = { from: dim, to: 1, start: now };
+    } else {
+      dimRef.current = { from: dim, to: 0, start: now };
+    }
+    animateFor(reducedMotion ? 0 : Math.max(DIM_MS, 320) + 40);
+    if (reducedMotion) dimRef.current = { ...dimRef.current, from: dimRef.current.to };
+  }, [focus, focusScene, animateFor, reducedMotion]);
+
+  // Filter changes cross-fade between the old and the new scene.
+  useEffect(() => {
+    const previous = lastSceneRef.current;
+    lastSceneRef.current = scene;
+    if (!previous || previous === scene || reducedMotion) return;
+    transitionRef.current = { from: previous, start: performance.now() };
+    animateFor(FILTER_FADE_MS + 40);
+  }, [scene, animateFor, reducedMotion]);
+
+  // New manual links grow from one card to the other.
+  useEffect(() => {
+    const manual = snapshot.links.filter((link) => link.kind === 'manual');
+    const known = knownManualRef.current;
+    knownManualRef.current = new Set(manual.map((link) => link.id));
+    if (!known || reducedMotion) return;
+    const now = performance.now();
+    let grown = false;
+    for (const link of manual) {
+      if (known.has(link.id)) continue;
+      linkBornRef.current.set(link.id, now);
+      grown = true;
+    }
+    if (grown) animateFor(LINK_GROW_MS + 40);
+  }, [snapshot, animateFor, reducedMotion]);
 
   // Forces: clusters around the hubs, similar cards close, no centering (pinned nodes).
   useEffect(() => {
@@ -345,6 +561,22 @@ export default function BrainGraph({
         return fg.graph2ScreenCoords(node.x, node.y);
       },
       zoom: () => fgRef.current?.zoom() ?? 0,
+      linkScreen: (id) => {
+        const link = visible.links.find((l) => l.id === id);
+        const fg = fgRef.current;
+        if (!link || !fg) return null;
+        const a = { x: link.a.x ?? 0, y: link.a.y ?? 0 };
+        const b = { x: link.b.x ?? 0, y: link.b.y ?? 0 };
+        const mid = link.cross
+          ? curvePoint(a, b, CROSS_CURVATURE, 0.5)
+          : { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        return fg.graph2ScreenCoords(mid.x, mid.y);
+      },
+      cardLinks: () =>
+        visible.links
+          .filter((l) => l.kind !== 'hub')
+          .map((l) => ({ id: l.id, kind: l.kind, cross: l.cross, a: l.a.id, b: l.b.id })),
+      cameraMoving: () => performance.now() < cameraUntilRef.current,
     };
     const timer = setInterval(() => {
       const stats = summarizeFrames(draw.list().slice(-60));
@@ -356,26 +588,70 @@ export default function BrainGraph({
       clearInterval(timer);
       delete window.__synapseBrain;
     };
-  }, [devMode, snapshot]);
+  }, [devMode, snapshot, visible]);
 
   const onRenderFramePost = useCallback(
     (ctx: CanvasRenderingContext2D, k: number) => {
       const start = performance.now();
       const press = pressRef.current;
-      drawFrame(ctx, scene, {
+      pulsesRef.current = pulsesRef.current.filter((p) => start - p.start < PULSE_MS);
+      for (const [id, born] of linkBornRef.current) {
+        if (start - born > LINK_GROW_MS) linkBornRef.current.delete(id);
+      }
+      const dim = fadeValue(dimRef.current, start, DIM_MS);
+      const base = 1 - DIM_DEPTH * dim;
+      const common: FrameInput = {
         k,
         now: start,
         palette,
-        impulses: impulsesRef.current,
+        impulses: dim > 0.01 ? [] : impulsesRef.current,
         dragId: press?.active ? press.node.id : null,
+        hoverId: hoverRef.current.id,
+        selectedLinkId,
+        pulses: pulsesRef.current,
+        linkBorn: linkBornRef.current,
+      };
+
+      let fadeIn = 1;
+      const transition = transitionRef.current;
+      if (transition) {
+        fadeIn = easeOut((start - transition.start) / FILTER_FADE_MS);
+        if (fadeIn >= 1) transitionRef.current = null;
+        else
+          drawFrame(ctx, transition.from, {
+            ...common,
+            opacity: base * (1 - fadeIn),
+            labels: 'none',
+          });
+      }
+      drawFrame(ctx, scene, {
+        ...common,
+        opacity: base * fadeIn,
+        labels: dim > 0.5 ? 'none' : 'auto',
       });
+
+      const overlay = overlayRef.current;
+      if (overlay && dim > 0.001) {
+        const t = Math.min(dim, easeOut((start - overlay.start) / DIM_MS));
+        drawFrame(ctx, overlay.scene, {
+          ...common,
+          opacity: t,
+          labels: 'all',
+          emphasis: overlay.focus.kind === 'card' ? { id: overlay.focus.id, t } : null,
+        });
+      } else if (overlay && dimRef.current.to === 0) {
+        overlayRef.current = null;
+      }
+
       const rec = recorders.current;
       rec.draw.push(performance.now() - start);
       if (rec.last > 0 && start - rec.last < 250) rec.interval.push(start - rec.last);
       rec.last = start;
     },
-    [scene, palette],
+    [scene, palette, selectedLinkId],
   );
+
+  useEffect(() => requestRedraw(), [selectedLinkId, requestRedraw]);
 
   // Gestures --------------------------------------------------------------------------
 
@@ -385,7 +661,7 @@ export default function BrainGraph({
     if (!fg || !element) return null;
     const rect = element.getBoundingClientRect();
     const point = fg.screen2GraphCoords(clientX - rect.left, clientY - rect.top);
-    return nodeAt(snapshot.nodes, point, tolerancePx / fg.zoom());
+    return nodeAt(visible.nodes, point, tolerancePx / fg.zoom());
   };
 
   const graphPoint = (clientX: number, clientY: number) => {
@@ -401,6 +677,7 @@ export default function BrainGraph({
     if (press.timer) clearTimeout(press.timer);
     pressRef.current = null;
     if (!press.active) return;
+    suppressClickRef.current = performance.now() + 400;
     requestRedraw();
     if (save && persist && press.node.x !== undefined && press.node.y !== undefined) {
       void graphPositionsRepo.saveMany([
@@ -419,6 +696,7 @@ export default function BrainGraph({
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     pointersRef.current.add(event.pointerId);
+    downRef.current = { x: event.clientX, y: event.clientY };
     userMovedRef.current = true;
     if (pointersRef.current.size > 1) {
       // Second finger: pinch, never a node drag.
@@ -446,8 +724,36 @@ export default function BrainGraph({
     pressRef.current = press;
   };
 
+  const updateHover = (clientX: number, clientY: number) => {
+    const hover = hoverRef.current;
+    if (hover.frame) return;
+    hover.frame = requestAnimationFrame(() => {
+      hover.frame = 0;
+      const node = hitTest(clientX, clientY, 5);
+      const id = node?.kind === 'card' ? node.id : null;
+      if (id === hover.id) return;
+      hover.id = id;
+      onHover(id ? node : null);
+      requestRedraw();
+    });
+  };
+
+  const clearHover = () => {
+    const hover = hoverRef.current;
+    if (hover.frame) cancelAnimationFrame(hover.frame);
+    hover.frame = 0;
+    if (hover.id === null) return;
+    hover.id = null;
+    onHover(null);
+    requestRedraw();
+  };
+
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const press = pressRef.current;
+    if (event.pointerType === 'mouse' && !press && event.buttons === 0) {
+      updateHover(event.clientX, event.clientY);
+      return;
+    }
     if (!press || press.pointerId !== event.pointerId) return;
     if (!press.active) {
       const moved = Math.hypot(event.clientX - press.startX, event.clientY - press.startY);
@@ -478,7 +784,30 @@ export default function BrainGraph({
     !(event.type === 'mousedown' && hitTest(event.clientX, event.clientY, 4));
 
   const onBackgroundClick = (event: MouseEvent) => {
-    if (hitTest(event.clientX, event.clientY, 14)) return; // node taps belong to step 14
+    const down = downRef.current;
+    if (
+      performance.now() < suppressClickRef.current ||
+      (down && Math.hypot(event.clientX - down.x, event.clientY - down.y) > TOUCH_SLOP)
+    ) {
+      return;
+    }
+    const node = hitTest(event.clientX, event.clientY, 14);
+    if (node) {
+      lastTapRef.current = null;
+      onSelectNode(node);
+      return;
+    }
+    const fg = fgRef.current;
+    const rect = elementRef.current?.getBoundingClientRect();
+    const point = graphPoint(event.clientX, event.clientY);
+    if (fg && rect && point) {
+      const link = linkAt(visible.links, point, LINK_TOLERANCE_PX / fg.zoom(), CROSS_CURVATURE);
+      if (link) {
+        lastTapRef.current = null;
+        onSelectLink(link, { x: event.clientX - rect.left, y: event.clientY - rect.top });
+        return;
+      }
+    }
     const last = lastTapRef.current;
     if (
       last &&
@@ -490,9 +819,11 @@ export default function BrainGraph({
       return;
     }
     lastTapRef.current = { time: event.timeStamp, x: event.clientX, y: event.clientY };
+    onBackgroundTap();
   };
 
   const onZoom = ({ k, x, y }: { k: number; x: number; y: number }) => {
+    if (hoverRef.current.id && performance.now() >= cameraUntilRef.current) clearHover();
     const dots = dotsRef.current;
     if (dots) dots.style.backgroundPosition = `${-x * k * PARALLAX}px ${-y * k * PARALLAX}px`;
   };
@@ -513,6 +844,7 @@ export default function BrainGraph({
         onPointerMoveCapture={onPointerMove}
         onPointerUpCapture={onPointerEnd}
         onPointerCancelCapture={onPointerEnd}
+        onPointerLeave={clearHover}
       >
         {size && (
           <ForceGraph2D<BrainNode, BrainLink>
@@ -547,7 +879,7 @@ export default function BrainGraph({
         <span
           ref={statsRef}
           data-testid="brain-frame-stats"
-          className="pointer-events-none absolute top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] rounded-full bg-surface/80 px-3 py-1 text-xs font-medium text-fg-secondary tabular-nums backdrop-blur"
+          className="pointer-events-none absolute right-[max(1rem,env(safe-area-inset-right))] bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+5.5rem))] rounded-full bg-surface/80 px-3 py-1 text-xs font-medium text-fg-secondary tabular-nums backdrop-blur"
         />
       )}
     </div>

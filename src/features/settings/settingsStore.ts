@@ -2,7 +2,9 @@ import { z } from 'zod';
 import { create } from 'zustand';
 import { settingsRepo } from '@/data/repositories';
 import { GRADING_MODES, GRADING_STRICTNESS, STUDY_DIRECTIONS } from '@/data/types';
+import { DEFAULT_BRAIN_FILTER, MIN_SIMILARITY_RANGE } from '@/core/brain/interaction';
 import { DEFAULT_LINK_OPTIONS, LINK_THRESHOLD, LINK_TOP_K } from '@/core/brain/links';
+import { MASTERY_LEVELS } from '@/core/mastery';
 import { AI_MODEL_PATTERN, AI_PROVIDERS, DEFAULT_AI_MODEL } from '@/services/ai/config';
 import { BRAIN_EMBEDDERS } from '@/services/brain/embedder';
 
@@ -32,6 +34,14 @@ const schemas = {
   brainTopK: z.number().int().min(LINK_TOP_K.min).max(LINK_TOP_K.max),
   /** 'hash' = developer stand-in without model download (only offered in developer mode). */
   brainEmbedder: z.enum(BRAIN_EMBEDDERS),
+  /** Filter of the brain view (remembered between visits). */
+  brainFilter: z.object({
+    hiddenProjects: z.array(z.string()).max(500),
+    crossOnly: z.boolean(),
+    minSimilarity: z.number().min(MIN_SIMILARITY_RANGE.min).max(MIN_SIMILARITY_RANGE.max),
+    levels: z.array(z.enum(MASTERY_LEVELS)),
+    hideUnlearned: z.boolean(),
+  }),
   // Developer
   devMode: z.boolean(),
 };
@@ -53,6 +63,7 @@ export const SETTINGS_DEFAULTS: SettingsValues = {
   brainThreshold: DEFAULT_LINK_OPTIONS.threshold,
   brainTopK: DEFAULT_LINK_OPTIONS.topK,
   brainEmbedder: 'model',
+  brainFilter: DEFAULT_BRAIN_FILTER,
   devMode: false,
 };
 

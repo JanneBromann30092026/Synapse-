@@ -85,7 +85,12 @@ export function Shell() {
   const focus = useFocusMode();
   const reduced = useReducedMotion();
 
-  useHotkeys([{ combo: 'mod+k', handler: () => toast.info(de.hotkeys.searchSoon) }]);
+  const { pathname } = useLocation();
+  // The brain has its own search (⌘K); elsewhere a global search follows later.
+  useHotkeys(
+    [{ combo: 'mod+k', handler: () => toast.info(de.hotkeys.searchSoon) }],
+    pathname !== '/brain',
+  );
 
   return (
     <div className="relative flex h-dvh overflow-hidden" data-layout={wide ? 'wide' : 'narrow'}>

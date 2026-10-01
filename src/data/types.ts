@@ -137,6 +137,18 @@ export interface CardLink {
   createdAt: string;
 }
 
+/** AI explanation why two cards are linked (cache, one per card pair). */
+export interface LinkExplanation {
+  /** sourceCardId < targetCardId (see normalizeLinkPair). */
+  sourceCardId: string;
+  targetCardId: string;
+  /** Hash of both card texts: an edited card invalidates the explanation. */
+  textHash: string;
+  explanation: string;
+  model: string;
+  createdAt: string;
+}
+
 export interface GraphPosition {
   /** A card id or project id (project hubs). */
   nodeId: string;

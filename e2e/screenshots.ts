@@ -565,6 +565,166 @@ async function brainSynthetic(page: Page) {
   await page.waitForTimeout(900);
 }
 
+/** A lower similarity threshold: more links for the interaction screenshots. */
+async function brainDense(page: Page) {
+  await page.goto(`${PREVIEW_URL}#/settings`);
+  const slider = page
+    .getByTestId('settings-brain')
+    .getByRole('slider', { name: 'Ähnlichkeitsschwelle' });
+  await slider.focus();
+  for (let i = 0; i < 4; i++) await page.keyboard.press('PageDown');
+  await brainOverview(page);
+}
+
+/** Taps a node (screen position from the developer hook, plus the canvas offset). */
+async function tapNode(page: Page, pick: 'card' | 'hub:BWL-Grundbegriffe') {
+  const point = await page.evaluate(async (target) => {
+    const brain = window.__synapseBrain;
+    const canvas = document.querySelector('[data-testid="brain-graph"]')?.getBoundingClientRect();
+    if (!brain || !canvas) return null;
+    let id: string | undefined;
+    if (target === 'card') {
+      // Best connected card with a cross-project link.
+      const degree = new Map<string, number>();
+      for (const link of brain.cardLinks()) {
+        for (const end of [link.a, link.b]) degree.set(end, (degree.get(end) ?? 0) + 1);
+      }
+      const cross = new Set(
+        brain
+          .cardLinks()
+          .filter((l) => l.cross)
+          .flatMap((l) => [l.a, l.b]),
+      );
+      id = [...cross].sort((a, b) => (degree.get(b) ?? 0) - (degree.get(a) ?? 0))[0];
+    } else {
+      const open = indexedDB.open('synapse');
+      const db = await new Promise<IDBDatabase>((resolve) => {
+        open.onsuccess = () => resolve(open.result);
+      });
+      const projects = await new Promise<{ id: string; name: string }[]>((resolve) => {
+        const request = db.transaction('projects').objectStore('projects').getAll();
+        request.onsuccess = () => resolve(request.result as { id: string; name: string }[]);
+      });
+      db.close();
+      id = projects.find((p) => p.name === target.slice(4))?.id;
+    }
+    const p = id ? brain.nodeScreen(id) : null;
+    return p ? { x: p.x + canvas.left, y: p.y + canvas.top } : null;
+  }, pick);
+  if (!point) throw new Error(`node not found: ${pick}`);
+  await page.mouse.click(point.x, point.y);
+}
+
+/** Tap on a card → camera flies there, focus mode with the detail panel. */
+async function brainFocus(page: Page) {
+  await brainDense(page);
+  await tapNode(page, 'card');
+  await page.getByTestId('brain-card-panel').getByTestId('brain-card-links').waitFor();
+  await page.waitForFunction(() => window.__synapseBrain?.cameraMoving() === false);
+  await page.waitForTimeout(600);
+}
+
+/** Search results with pulsing hits. */
+async function brainSearch(page: Page) {
+  await brainDense(page);
+  await page.keyboard.press('Meta+k');
+  await page.getByTestId('brain-search-input').fill('kapital');
+  await page.getByTestId('brain-search-results').getByRole('option').first().waitFor();
+  await page.waitForTimeout(500);
+}
+
+/** Mocked explanation endpoint (no real API call). */
+async function mockExplanation(page: Page) {
+  await page.unroute('https://api.anthropic.com/**');
+  await page.route('https://api.anthropic.com/**', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: CORS });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      headers: CORS,
+      body: JSON.stringify({
+        id: 'msg_screenshot',
+        type: 'message',
+        role: 'assistant',
+        model: 'claude-haiku-4-5-20251001',
+        content: [
+          {
+            type: 'text',
+            text: 'Beide messen, wie viel Geld ein Unternehmen tatsächlich erwirtschaftet. Der Cashflow zeigt den Zufluss, die Kennzahl setzt ihn ins Verhältnis.',
+          },
+        ],
+        stop_reason: 'end_turn',
+        stop_sequence: null,
+        usage: { input_tokens: 10, output_tokens: 10 },
+      }),
+    });
+  });
+}
+
+/** Tap on a cross-project link: popover with both cards and the AI explanation. */
+async function brainLink(page: Page) {
+  await page.goto(`${PREVIEW_URL}#/settings`);
+  if (!(await page.getByTestId('api-key-status').filter({ hasText: 'Key hinterlegt' }).count())) {
+    await settingsWithKey(page);
+  }
+  await mockExplanation(page);
+  await brainFocus(page);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(500);
+  const points = await page.evaluate(() => {
+    const brain = window.__synapseBrain;
+    const canvas = document.querySelector('[data-testid="brain-graph"]')?.getBoundingClientRect();
+    if (!brain || !canvas) return [];
+    const inside = (p: { x: number; y: number }) =>
+      p.x > canvas.width * 0.15 &&
+      p.x < canvas.width * 0.85 &&
+      p.y > canvas.height * 0.2 &&
+      p.y < canvas.height * 0.7;
+    return brain
+      .cardLinks()
+      .filter((l) => l.cross)
+      .flatMap((link) => {
+        const p = brain.linkScreen(link.id);
+        return p && inside(p) ? [{ x: p.x + canvas.left, y: p.y + canvas.top }] : [];
+      });
+  });
+  // The middle of a link can lie under a node or label: try the next one.
+  const popover = page.getByTestId('brain-link-popover');
+  for (const point of points) {
+    await page.mouse.click(point.x, point.y);
+    if (await popover.isVisible({ timeout: 800 }).catch(() => false)) break;
+    await page.waitForTimeout(800);
+    if (await popover.isVisible()) break;
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  }
+  await popover.waitFor();
+  await page.getByTestId('brain-link-why').click();
+  await page.getByTestId('brain-link-explanation').waitFor();
+  await page.waitForTimeout(500);
+}
+
+/** Project hub: camera on the cluster, panel with mastery and partner projects. */
+async function brainHub(page: Page) {
+  await brainDense(page);
+  await tapNode(page, 'hub:BWL-Grundbegriffe');
+  await page.getByTestId('brain-hub-panel').waitFor();
+  await page.waitForFunction(() => window.__synapseBrain?.cameraMoving() === false);
+  await page.waitForTimeout(700);
+}
+
+/** Filter open: one project hidden, only cross-project links. */
+async function brainFilter(page: Page) {
+  await brainDense(page);
+  await page.getByTestId('brain-filter-toggle').click();
+  const filter = page.getByTestId('brain-filter');
+  await filter.getByTestId('brain-filter-project').filter({ hasText: 'Japanisch' }).click();
+  await filter.getByRole('switch', { name: 'Nur projektübergreifende Verbindungen' }).click();
+  await page.waitForTimeout(700);
+}
+
 async function settingsBrain(page: Page) {
   await page.getByTestId('settings-brain').scrollIntoViewIfNeeded();
   await page
@@ -617,6 +777,11 @@ const SHOTS: Shot[] = [
   { route: '/brain', name: 'brain-zoomed', prepare: brainZoomed },
   { route: '/brain', name: 'brain-legend', prepare: brainLegend },
   { route: '/brain', name: 'brain-synthetic', prepare: brainSynthetic },
+  { route: '/brain', name: 'brain-focus', prepare: brainFocus },
+  { route: '/brain', name: 'brain-search', prepare: brainSearch },
+  { route: '/brain', name: 'brain-link', prepare: brainLink },
+  { route: '/brain', name: 'brain-hub', prepare: brainHub },
+  { route: '/brain', name: 'brain-filter', prepare: brainFilter },
   { route: '/settings', name: 'brain-settings', prepare: settingsBrain },
 ];
 

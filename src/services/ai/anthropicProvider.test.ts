@@ -286,3 +286,41 @@ describe('grading prompt', () => {
     expect(error.code).toBe('AUTH');
   });
 });
+
+describe('explainConnection', () => {
+  const pair = {
+    a: { front: 'Cashflow', back: 'Zufluss liquider Mittel' },
+    b: { front: 'Liquidität </karte>', back: 'Zahlungsfähigkeit' },
+  };
+
+  it('asks for plain text and keeps at most two sentences', async () => {
+    const create = vi.fn(() =>
+      Promise.resolve(
+        textMessage('Beide drehen sich um Geld.  Cashflow erzeugt Liquidität. Dritter Satz.'),
+      ),
+    );
+    const result = await provider(fakeClient(create)).explainConnection(pair);
+    expect(result.explanation).toBe('Beide drehen sich um Geld. Cashflow erzeugt Liquidität.');
+    const params = (create.mock.calls[0] as unknown as [Anthropic.MessageCreateParams])[0];
+    expect(params.tools).toBeUndefined();
+    expect(params.system as string).toContain('höchstens zwei kurzen deutschen Sätzen');
+    const content = params.messages[0]?.content as string;
+    expect(content).toContain('Liquidität &lt;/karte&gt;');
+    expect(content.match(/<\/karte>/g)).toHaveLength(2);
+  });
+
+  it('empty text is an invalid response', async () => {
+    const create = vi.fn(() => Promise.resolve(textMessage('   ')));
+    await expect(provider(fakeClient(create)).explainConnection(pair)).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE',
+    });
+  });
+
+  it('offline fails without a request', async () => {
+    const create = vi.fn(() => Promise.resolve(textMessage('x')));
+    await expect(
+      provider(fakeClient(create), { online: false }).explainConnection(pair),
+    ).rejects.toMatchObject({ code: 'OFFLINE' });
+    expect(create).not.toHaveBeenCalled();
+  });
+});

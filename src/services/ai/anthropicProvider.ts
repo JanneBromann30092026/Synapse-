@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { AI_TIMEOUT_MS } from './config';
+import { buildExplainMessage, cleanExplanation, EXPLAIN_SYSTEM_PROMPT } from './explainPrompt';
 import {
   buildGradingMessage,
   GRADE_TOOL,
@@ -12,6 +13,8 @@ import {
   type AiCallOptions,
   type AiProvider,
   type ConnectionTestResult,
+  type ExplainConnectionRequest,
+  type ExplainConnectionResult,
   type GradeRequest,
   type GradeResult,
 } from './types';
@@ -47,6 +50,9 @@ export interface AnthropicProviderOptions {
   isOnline?: () => boolean;
   createClient?: (apiKey: string) => AnthropicClientLike;
 }
+
+/** Short plain-text answer (two sentences). */
+const EXPLAIN_MAX_TOKENS = 1024;
 
 /** Small output; room for the always-on thinking of newer models if one is configured. */
 const MAX_TOKENS = 2048;
@@ -206,5 +212,32 @@ export class AnthropicProvider implements AiProvider {
       options.signal,
     );
     return { model: info.id, displayName: info.display_name || info.id };
+  }
+
+  /** Explains in at most two German sentences why two brain cards are linked. */
+  async explainConnection(
+    input: ExplainConnectionRequest,
+    options: AiCallOptions = {},
+  ): Promise<ExplainConnectionResult> {
+    const message = await this.call(
+      (requestOptions) =>
+        this.client.messages.create(
+          {
+            model: this.model,
+            max_tokens: EXPLAIN_MAX_TOKENS,
+            system: EXPLAIN_SYSTEM_PROMPT,
+            messages: [{ role: 'user', content: buildExplainMessage(input) }],
+          },
+          requestOptions,
+        ),
+      options.signal,
+    );
+    if (message.stop_reason === 'refusal') throw new AiError('INVALID_RESPONSE');
+    const text = message.content
+      .flatMap((block) => (block.type === 'text' ? [block.text] : []))
+      .join(' ');
+    const explanation = cleanExplanation(text);
+    if (!explanation) throw new AiError('INVALID_RESPONSE');
+    return { explanation, model: message.model || this.model };
   }
 }
