@@ -188,7 +188,12 @@ export default defineConfig({
               name: 'motion',
               test: /node_modules[\\/](motion|framer-motion|motion-dom|motion-utils)[\\/]/,
             },
-            { name: 'data', test: /node_modules[\\/](dexie|dexie-react-hooks|zod)[\\/]/ },
+            {
+              name: 'data',
+              // src/zodConfig.ts belongs to zod's chunk: shared app chunks create schemas
+              // while they load, before the entry chunk's own code runs.
+              test: /node_modules[\\/](dexie|dexie-react-hooks|zod)[\\/]|src[\\/]zodConfig\.ts$/,
+            },
           ],
         },
       },
