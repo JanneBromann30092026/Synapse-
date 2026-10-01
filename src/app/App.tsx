@@ -3,6 +3,7 @@ import { HashRouter } from 'react-router';
 import { MotionConfig } from 'motion/react';
 import { Toaster } from '@/components/ui';
 import { useSettings } from '@/features/settings/settingsStore';
+import { startBrainBackgroundSync } from '@/services/brain';
 import { Background } from './Background';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Shell } from './shell/Shell';
@@ -21,6 +22,12 @@ function useStartup() {
   }, [init, loadSettings]);
 }
 
+/** Keeps embeddings and links current once the settings are loaded. */
+function useBrainBackgroundSync() {
+  const loaded = useSettings((s) => s.loaded);
+  useEffect(() => (loaded ? startBrainBackgroundSync() : undefined), [loaded]);
+}
+
 function useThemeSync() {
   const theme = useSettings((s) => s.theme);
   const reduceMotion = useSettings((s) => s.reduceMotion);
@@ -35,6 +42,7 @@ function useThemeSync() {
 export function App() {
   useStartup();
   useThemeSync();
+  useBrainBackgroundSync();
   const reduceMotion = useSettings((s) => s.reduceMotion);
 
   return (

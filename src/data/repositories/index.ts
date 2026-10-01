@@ -17,3 +17,16 @@ export {
   type ProjectMasterySummary,
   type StatsOverview,
 } from './statsRepo';
+export {
+  brainRepo,
+  isBrainProject,
+  LINK_STATE_KEY,
+  type CrossProjectLink,
+  type EmbeddingMatrix,
+  type EmbeddingStatus,
+  type GraphCardNode,
+  type GraphData,
+  type GraphEdge,
+  type LinkState,
+  type PendingCard,
+} from './brainRepo';
