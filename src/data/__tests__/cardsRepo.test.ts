@@ -155,3 +155,19 @@ describe('cardsRepo', () => {
     expect((await cardsRepo.listByProject(project.id)).map((c) => c.front)).toEqual(['2']);
   });
 });
+
+describe('cardsRepo.importMany', () => {
+  it('imports in order and skips duplicate front sides', async () => {
+    await cardsRepo.create(project.id, { front: 'Hund', back: 'dog' });
+    const result = await cardsRepo.importMany(project.id, [
+      { front: 'Katze', back: 'cat' },
+      { front: ' hund ', back: 'dog' },
+      { front: 'Maus', back: 'mouse', tags: ['Tiere'] },
+      { front: 'KATZE', back: 'cat' },
+    ]);
+    expect(result.created.map((c) => c.front)).toEqual(['Katze', 'Maus']);
+    expect(result.skippedDuplicates).toBe(2);
+    const list = await cardsRepo.listByProject(project.id);
+    expect(list.map((c) => c.front)).toEqual(['Hund', 'Katze', 'Maus']);
+  });
+});

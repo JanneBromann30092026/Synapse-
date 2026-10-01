@@ -204,3 +204,40 @@ test('demo data, search, tag filter, edit, swipe, grid and selection', async ({ 
   await expect(page.getByTestId('card-count')).toHaveText('32 Karten');
   expect(problems).toEqual([]);
 });
+
+test('csv import: preview, import and skip duplicates', async ({ page }) => {
+  const problems = collectConsoleProblems(page);
+  await page.goto('./#/projects');
+  await page.getByRole('button', { name: 'Erstes Projekt anlegen' }).click();
+  await page.getByRole('dialog').getByLabel('Name').fill('VWL');
+  await page.getByRole('button', { name: 'Anlegen', exact: true }).click();
+  await page.getByRole('link', { name: 'VWL öffnen' }).click();
+
+  const csv =
+    '﻿"front","back","notes","tags"\r\n' +
+    '"Abkürzung BIP","Bruttoinlandsprodukt","","VWL, BIP"\r\n' +
+    '"Multiplikator m = ?","1/(1 − c1)","Bei c1 = 0,6: 2,5","VWL, Gütermarkt"\r\n' +
+    '"ohne Rückseite",""\r\n';
+  const upload = (name: string) =>
+    page.getByTestId('import-file').setInputFiles({
+      name,
+      mimeType: 'text/csv',
+      buffer: Buffer.from(csv, 'utf-8'),
+    });
+
+  await upload('vwl.csv');
+  const dialog = page.getByRole('alertdialog', { name: '2 Karten importieren?' });
+  await expect(dialog).toContainText('„vwl.csv“');
+  await expect(dialog).toContainText('1 Zeile ohne Vorder- oder Rückseite');
+  await dialog.getByRole('button', { name: 'Importieren' }).click();
+  await expect(page.getByText('2 Karten importiert')).toBeVisible();
+  await expect(rows(page)).toHaveCount(2);
+  await expect(rows(page).first()).toContainText('Abkürzung BIP');
+
+  // Importing the same file again creates nothing new.
+  await upload('vwl.csv');
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Importieren' }).click();
+  await expect(page.getByText('0 Karten importiert · 2 doppelt, übersprungen')).toBeVisible();
+  await expect(rows(page)).toHaveCount(2);
+  expect(problems).toEqual([]);
+});
