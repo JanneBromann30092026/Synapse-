@@ -8,6 +8,7 @@ import type {
   GradingCacheEntry,
   GradingStrictness,
   GraphPosition,
+  LinkExplanation,
   Project,
   Secret,
   Setting,
@@ -30,6 +31,7 @@ export class SynapseDb extends Dexie {
   graphPositions!: EntityTable<GraphPosition, 'nodeId'>;
   settings!: EntityTable<Setting, 'key'>;
   secrets!: EntityTable<Secret, 'key'>;
+  linkExplanations!: Table<LinkExplanation, [string, string]>;
 
   constructor(name = DB_NAME) {
     super(name);
@@ -50,6 +52,11 @@ export class SynapseDb extends Dexie {
       graphPositions: 'nodeId, updatedAt',
       settings: 'key',
       secrets: 'key',
+    });
+
+    // Step 14: cache of AI explanations for brain links (new table, no data to migrate).
+    this.version(2).stores({
+      linkExplanations: '[sourceCardId+targetCardId], sourceCardId, targetCardId',
     });
   }
 }

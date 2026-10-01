@@ -49,8 +49,8 @@ export interface AiProvider {
   gradeAnswer(input: GradeRequest, options?: AiCallOptions): Promise<GradeResult>;
   /** Cheap check that key, network and model work (no tokens are generated). */
   testConnection(options?: AiCallOptions): Promise<ConnectionTestResult>;
-  /** Signature only – explains why two brain nodes are linked (implemented in step 14). */
-  explainConnection?(
+  /** Explains in at most two German sentences why two brain cards are linked. */
+  explainConnection(
     input: ExplainConnectionRequest,
     options?: AiCallOptions,
   ): Promise<ExplainConnectionResult>;

@@ -88,3 +88,4 @@ export function startBrainBackgroundSync(): () => void {
 export { MODEL_DOWNLOAD_MB, deleteModelCache, isModelCached, modelCacheBytes } from './modelCache';
 export { embedderModel, BRAIN_EMBEDDERS, type BrainEmbedderKind } from './embedder';
 export type { BrainSyncPhase, BrainSyncState } from './brainSync';
+export { createLinkExplainer, linkExplainer, type ExplainedLink } from './explainLink';

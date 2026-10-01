@@ -84,7 +84,7 @@ Touch-first (iPad):
 - [x] 11 Lernhistorie & Statistik
 - [x] 12 Gehirn – lokale Embeddings & Verknüpfungen
 - [x] 13 Gehirn – Visualisierung
-- [ ] 14 Gehirn – Interaktion
+- [x] 14 Gehirn – Interaktion
 - [ ] 15 Import, Export & Backups
 - [ ] 16 Feinschliff & Installation
 
@@ -180,4 +180,13 @@ Touch-first (iPad):
 - Entwicklermodus: `#/brain?synthetic=2000|3000` (Testdaten-Menü in der Steuerleiste, nichts wird gespeichert), Framezeit-Anzeige oben rechts und `window.__synapseBrain` für Playwright. Messung in der Cloud (Software-Rendering): eigener Zeichencode p95 ≈ 13 ms bei 3000/10000; die Frameabstände (≈ 170 ms) dominiert dort das Rastern des Canvas in Software – auf dem iPad (GPU) nicht aussagekräftig, dort prüfen.
 - Vollbild-Schalter blendet Sidebar/Tab-Bar aus (`useBrainView`, Shell-Fokusmodus). Die Top-10-Liste aus Schritt 12 ist entfallen (`brainRepo.topCrossProjectLinks` bleibt für Schritt 14).
 
+- Schritt 14 (Gehirn-Interaktion): reine Logik in `src/core/brain/interaction.ts` (Nachbarschaft/`buildAdjacency`, `neighborhoodStudyCards` max. 30, `filterGraph`, `linkAt` mit Kurven wie gezeichnet, `searchCards`, `neighborInDirection` für Pfeiltasten, `hubSummary`, `focusCenter`). Gefiltert wird nur die Anzeige: Simulation und gespeicherte Positionen laufen auf dem ganzen Graphen, `visible` wird gezeichnet und ist antippbar.
+- Fokusmodus: zweiter Zeichendurchgang. Die ganze Szene wird abgedunkelt (DIM 0,85), die Nachbarschaft als eigene Szene (`buildScene` des Teilgraphen) darüber, Beschriftungen dort unabhängig vom Zoom. Filterwechsel blenden alte → neue Szene über. Animationen laufen über eine eigene rAF-Schleife (`animateFor`), die `zoom(zoom())` aufruft – nie während einer Kamerafahrt (würde sie abbrechen, `cameraUntilRef`). Kamera: Karte + Nachbarn werden neben dem Panel eingepasst (max. Zoom 2,4).
+- Antippen: force-graph `onBackgroundClick` liefert alle Klicks (Pointer-Interaktion ist aus) → Knoten (14 px) → Kante (12 px) → Hintergrund; nach Ziehen/Long-Press wird der Klick unterdrückt. Hover-Vorschau nur bei Maus (`pointerType`).
+- Panel: ab 900 px rechts (24 rem), darunter BottomSheet (55 dvh, Griff wischen). Nicht modal, das Gehirn bleibt bedienbar. Selektion/Suche/Filter-offen in `brainViewStore` (wird beim Verlassen geleert); Filter dauerhaft in settings `brainFilter`.
+- ⌘K: Die Shell zeigt ihren „folgt später“-Hinweis nicht auf /brain, dort öffnet ⌘K die Gehirn-Suche.
+- Datenbank Version 2: Tabelle `linkExplanations` (`[sourceCardId+targetCardId]`, textHash beider Kartentexte → Bearbeiten macht die Erklärung ungültig), kaskadiert mit Karten. Manuelle Verbindungen: `linksRepo.addManual`/`removeManual` (Gewicht 1, nur manuelle löschbar).
+- KI: `explainConnection` (Klartext ohne Tool, max. 2 Sätze, `cleanExplanation`), `src/services/brain/explainLink.ts` (Cache → KI). Nur mit KI an, Key und online; sonst Button deaktiviert mit Begründung.
+- „Nachbarschaft lernen“ = `/study/cross?cards=…` (Karte + direkte Nachbarn), „Projekt lernen“ = normale Projektrunde; Rückweg jeweils /brain.
+- Entwickler-Hook `window.__synapseBrain` hat zusätzlich `linkScreen`, `cardLinks`, `cameraMoving`. E2E `e2e/brain-explore.spec.ts`; Screenshots `brain-focus`, `brain-search`, `brain-link`, `brain-hub`, `brain-filter` (Schwelle dort gesenkt, damit genug Verbindungen da sind).
 - Vorgezogen aus Schritt 15 (Wunsch: eigene VWL-Karten sofort nutzen): minimaler CSV-Import auf der Projektseite („Importieren“ → Dateien-App → Bestätigungsdialog mit Anzahl). Reine Logik `src/core/csvImport.ts` (RFC 4180, BOM, Trennzeichen , ; Tab automatisch, Kopfzeile front/back/notes/tags oder deutsche Namen in beliebiger Reihenfolge, sonst diese Spaltenfolge; Zeilen ohne Vorder-/Rückseite werden gemeldet). `cardsRepo.importMany` überspringt Karten mit gleicher normalisierter Vorderseite, alles in einer Transaktion. Schritt 15 baut darauf auf (Worker, Zuordnungsdialog, JSON, Export).

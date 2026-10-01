@@ -18,6 +18,9 @@ declare global {
       links: number;
       nodeScreen: (id: string) => { x: number; y: number } | null;
       zoom: () => number;
+      linkScreen: (id: string) => { x: number; y: number } | null;
+      cardLinks: () => { id: string; kind: string; cross: boolean; a: string; b: string }[];
+      cameraMoving: () => boolean;
     };
   }
 }

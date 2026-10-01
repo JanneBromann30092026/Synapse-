@@ -41,6 +41,7 @@ function fakeProvider(
     model: 'claude-haiku-4-5-20251001',
     gradeAnswer,
     testConnection: () => Promise.reject(new Error('not used')),
+    explainConnection: () => Promise.reject(new Error('not used')),
   };
   return { provider, gradeAnswer };
 }

@@ -7,6 +7,7 @@ import {
   type BrainNode,
 } from '@/core/brain/graph';
 import {
+  LABEL_MIN_ZOOM,
   placeLabels,
   truncateLabel,
   type LabelBox,
@@ -202,7 +203,29 @@ export interface FrameInput {
   impulses: readonly Impulse[];
   /** Node currently moved by long press + drag. */
   dragId: string | null;
+  /** Multiplies every opacity (dimming in focus mode, cross-fades between filters). */
+  opacity?: number;
+  /** 'all' labels the cards regardless of the zoom (focus overlay); default 'auto'. */
+  labels?: 'auto' | 'all' | 'none';
+  /** Focused node: drawn larger with a ring; t = 0..1 animation progress. */
+  emphasis?: { id: string; t: number } | null;
+  /** Node under the mouse pointer. */
+  hoverId?: string | null;
+  /** Link whose popover is open. */
+  selectedLinkId?: string | null;
+  /** Search hits: expanding rings for a moment. */
+  pulses?: readonly Pulse[];
+  /** performance.now() when a manual link appeared (drawn growing). */
+  linkBorn?: ReadonlyMap<string, number>;
 }
+
+export interface Pulse {
+  ids: ReadonlySet<string>;
+  start: number;
+}
+
+export const PULSE_MS = 1600;
+export const LINK_GROW_MS = 650;
 
 interface View {
   x0: number;
@@ -299,6 +322,8 @@ function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
 /** Draws one frame. Expects the zoom/pan transform of force-graph on the context. */
 export function drawFrame(ctx: CanvasRenderingContext2D, scene: Scene, frame: FrameInput): void {
   const { k, now, palette } = frame;
+  const o = frame.opacity ?? 1;
+  if (o <= 0.001) return;
   const m = ctx.getTransform();
   const dpr = m.a / k;
   const margin = 40 / k;
@@ -315,7 +340,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, scene: Scene, frame: Fr
 
   // 1. Card → hub: barely visible threads that show the clusters.
   ctx.lineWidth = 0.8 / k;
-  ctx.globalAlpha = (palette.dark ? 0.045 : 0.07) * scene.density;
+  ctx.globalAlpha = o * ((palette.dark ? 0.045 : 0.07) * scene.density);
   for (const bucket of scene.hubLinks) {
     ctx.strokeStyle = palette.project[bucket.color];
     strokeBucket(ctx, bucket.links, view);
@@ -324,14 +349,14 @@ export function drawFrame(ctx: CanvasRenderingContext2D, scene: Scene, frame: Fr
   // 2. Links within a project: thin, opacity by similarity.
   ctx.lineWidth = 1 / k;
   for (const bucket of scene.intra) {
-    ctx.globalAlpha = Math.min(1, bucket.alpha * scene.density * light);
+    ctx.globalAlpha = o * Math.min(1, bucket.alpha * scene.density * light);
     ctx.strokeStyle = palette.project[bucket.color];
     strokeBucket(ctx, bucket.links, view);
   }
 
   // 3. Cross-project links: curved, gradient between both project colors.
   ctx.lineWidth = 1.7 / k;
-  ctx.globalAlpha = (palette.dark ? 0.62 : 0.7) * Math.max(0.6, scene.density);
+  ctx.globalAlpha = o * ((palette.dark ? 0.62 : 0.7) * Math.max(0.6, scene.density));
   const visibleCross = scene.cross.filter((link) => segmentVisible(link.a, link.b, view));
   if (visibleCross.length <= MAX_GRADIENT_LINKS) {
     for (const link of visibleCross) {
@@ -365,11 +390,29 @@ export function drawFrame(ctx: CanvasRenderingContext2D, scene: Scene, frame: Fr
 
   // 4. Manual links: dashed in the accent color.
   if (scene.manual.length > 0) {
-    ctx.globalAlpha = 0.85;
+    const born = frame.linkBorn;
+    const growing = (link: BrainLink) => {
+      const start = born?.get(link.id);
+      return start !== undefined && now - start < LINK_GROW_MS;
+    };
+    ctx.globalAlpha = o * 0.85;
     ctx.strokeStyle = palette.accent;
     ctx.lineWidth = 1.5 / k;
     ctx.setLineDash([5 / k, 4 / k]);
-    strokeBucket(ctx, scene.manual, view);
+    strokeBucket(ctx, born ? scene.manual.filter((link) => !growing(link)) : scene.manual, view);
+    // New manual links grow from the focused card to their target.
+    ctx.beginPath();
+    for (const link of scene.manual) {
+      const start = born?.get(link.id);
+      if (start === undefined || !growing(link)) continue;
+      const t = (now - start) / LINK_GROW_MS;
+      const eased = 1 - (1 - t) ** 3;
+      const a = pos(link.a);
+      const b = pos(link.b);
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(a.x + (b.x - a.x) * eased, a.y + (b.y - a.y) * eased);
+    }
+    ctx.stroke();
     ctx.setLineDash([]);
   }
 
@@ -379,7 +422,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, scene: Scene, frame: Fr
   for (const hub of scene.hubs) {
     if (!nodeVisible(hub, view, hub.radius * 6)) continue;
     const r = hub.radius * 5.5;
-    ctx.globalAlpha = 0.55 * glowFactor * fade(hub, now);
+    ctx.globalAlpha = o * (0.55 * glowFactor * fade(hub, now));
     ctx.drawImage(
       glowSprite(palette.project[hub.color]),
       (hub.x ?? 0) - r,
@@ -393,7 +436,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, scene: Scene, frame: Fr
     const glow = MASTERY_STYLE[card.level].glow;
     if (glow === 0 || !nodeVisible(card, view, card.radius * 5)) continue;
     const r = Math.max(card.radius, minRadius) * 4.2;
-    ctx.globalAlpha = glow * 0.7 * glowFactor * fade(card, now);
+    ctx.globalAlpha = o * (glow * 0.7 * glowFactor * fade(card, now));
     ctx.drawImage(
       glowSprite(palette.project[card.color]),
       (card.x ?? 0) - r,
@@ -407,7 +450,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, scene: Scene, frame: Fr
   // Discs: one path per color and mastery level (thousands of drawImage calls are slow).
   for (const group of scene.discGroups) {
     ctx.fillStyle = palette.project[group.color];
-    ctx.globalAlpha = MASTERY_STYLE[group.level].core;
+    ctx.globalAlpha = o * MASTERY_STYLE[group.level].core;
     ctx.beginPath();
     let any = false;
     for (const card of group.cards) {
@@ -424,7 +467,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, scene: Scene, frame: Fr
   for (const card of scene.cards) {
     if (card.bornAt === 0 || now - card.bornAt >= FADE_MS) continue;
     const r = Math.max(card.radius, minRadius);
-    ctx.globalAlpha = MASTERY_STYLE[card.level].core * fade(card, now);
+    ctx.globalAlpha = o * (MASTERY_STYLE[card.level].core * fade(card, now));
     ctx.fillStyle = palette.project[card.color];
     ctx.beginPath();
     ctx.arc(card.x ?? 0, card.y ?? 0, r, 0, Math.PI * 2);
@@ -433,7 +476,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, scene: Scene, frame: Fr
   // A bright center on solid cards when zoomed in (the "lit" look).
   if (k > 1.2) {
     ctx.fillStyle = '#ffffff';
-    ctx.globalAlpha = palette.dark ? 0.7 : 0.55;
+    ctx.globalAlpha = o * (palette.dark ? 0.7 : 0.55);
     ctx.beginPath();
     for (const card of scene.cards) {
       if (card.level !== 'solid' || !nodeVisible(card, view, card.radius)) continue;
@@ -450,18 +493,18 @@ export function drawFrame(ctx: CanvasRenderingContext2D, scene: Scene, frame: Fr
     const y = hub.y ?? 0;
     const color = palette.project[hub.color];
     // Translucent body, bright ring, glowing core – a "nucleus" for the cluster.
-    ctx.globalAlpha = (palette.dark ? 0.28 : 0.2) * alpha;
+    ctx.globalAlpha = o * ((palette.dark ? 0.28 : 0.2) * alpha);
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(x, y, hub.radius, 0, Math.PI * 2);
     ctx.fill();
-    ctx.globalAlpha = alpha;
+    ctx.globalAlpha = o * alpha;
     ctx.strokeStyle = color;
     ctx.lineWidth = Math.max(2 / k, hub.radius * 0.12);
     ctx.stroke();
     const core = hub.radius * 0.42;
     ctx.drawImage(discSprite(color), x - core, y - core, core * 2, core * 2);
-    ctx.globalAlpha = 0.35 * alpha;
+    ctx.globalAlpha = o * (0.35 * alpha);
     ctx.strokeStyle = palette.dark ? '#ffffff' : color;
     ctx.lineWidth = 1 / k;
     ctx.beginPath();
@@ -482,7 +525,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, scene: Scene, frame: Fr
         if (tt < 0) continue;
         const p = curvePoint(pos(impulse.link.a), pos(impulse.link.b), CROSS_CURVATURE, tt);
         const r = (9 - i * 1.8) / k;
-        ctx.globalAlpha = fadeInOut * (1 - i * 0.22);
+        ctx.globalAlpha = o * (fadeInOut * (1 - i * 0.22));
         ctx.drawImage(glow, p.x - r, p.y - r, r * 2, r * 2);
       }
     }
@@ -495,7 +538,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, scene: Scene, frame: Fr
       scene.cards.find((card) => card.id === frame.dragId) ??
       scene.hubs.find((hub) => hub.id === frame.dragId);
     if (node) {
-      ctx.globalAlpha = 0.9;
+      ctx.globalAlpha = o * 0.9;
       ctx.strokeStyle = palette.accent;
       ctx.lineWidth = 2.5 / k;
       ctx.beginPath();
@@ -503,9 +546,105 @@ export function drawFrame(ctx: CanvasRenderingContext2D, scene: Scene, frame: Fr
       ctx.stroke();
     }
   }
+  drawHighlights(ctx, scene, frame, view, o);
   ctx.restore();
 
-  drawLabels(ctx, scene, frame, view, m, dpr);
+  if (frame.labels !== 'none') drawLabels(ctx, scene, frame, view, m, dpr);
+}
+
+/** Selected link, focused node, hover ring and search pulses (on top of the scene). */
+function drawHighlights(
+  ctx: CanvasRenderingContext2D,
+  scene: Scene,
+  frame: FrameInput,
+  view: View,
+  o: number,
+): void {
+  const { k, now, palette } = frame;
+  const minRadius = 1.3 / k;
+  const find = (id: string) =>
+    scene.cards.find((card) => card.id === id) ?? scene.hubs.find((hub) => hub.id === id);
+
+  if (frame.selectedLinkId) {
+    const link =
+      [...scene.cross, ...scene.manual].find((l) => l.id === frame.selectedLinkId) ??
+      scene.intra.flatMap((bucket) => bucket.links).find((l) => l.id === frame.selectedLinkId);
+    if (link) {
+      ctx.globalAlpha = o * 0.95;
+      ctx.strokeStyle = palette.dark ? '#ffffff' : palette.accent;
+      ctx.lineWidth = 3 / k;
+      ctx.beginPath();
+      if (link.cross) curve(ctx, link);
+      else {
+        ctx.moveTo(link.a.x ?? 0, link.a.y ?? 0);
+        ctx.lineTo(link.b.x ?? 0, link.b.y ?? 0);
+      }
+      ctx.stroke();
+    }
+  }
+
+  const emphasis = frame.emphasis;
+  if (emphasis) {
+    const node = find(emphasis.id);
+    if (node && node.kind === 'card' && nodeVisible(node, view, node.radius * 6)) {
+      const x = node.x ?? 0;
+      const y = node.y ?? 0;
+      const t = emphasis.t;
+      const r = Math.max(node.radius, minRadius) * (1 + 0.7 * t);
+      const color = palette.project[node.color];
+      ctx.globalCompositeOperation = palette.dark ? 'lighter' : 'source-over';
+      ctx.globalAlpha = o * t * (palette.dark ? 0.9 : 0.5);
+      const glow = r * 5;
+      ctx.drawImage(glowSprite(color), x - glow, y - glow, glow * 2, glow * 2);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = o;
+      ctx.drawImage(discSprite(color), x - r, y - r, r * 2, r * 2);
+      ctx.globalAlpha = o * t;
+      ctx.strokeStyle = palette.dark ? '#ffffff' : color;
+      ctx.lineWidth = 2 / k;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 5 / k, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  if (frame.hoverId && frame.hoverId !== emphasis?.id) {
+    const node = find(frame.hoverId);
+    if (node) {
+      ctx.globalAlpha = o * 0.8;
+      ctx.strokeStyle = palette.dark ? '#ffffff' : palette.project[node.color];
+      ctx.lineWidth = 1.5 / k;
+      ctx.beginPath();
+      ctx.arc(node.x ?? 0, node.y ?? 0, Math.max(node.radius, minRadius) + 4 / k, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  for (const pulse of frame.pulses ?? []) {
+    const t = (now - pulse.start) / PULSE_MS;
+    if (t < 0 || t > 1) continue;
+    for (const ring of [0, 0.35]) {
+      const tt = t - ring;
+      if (tt < 0 || tt > 0.65) continue;
+      const p = tt / 0.65;
+      ctx.globalAlpha = o * (1 - p) * 0.9;
+      ctx.lineWidth = 2 / k;
+      for (const id of pulse.ids) {
+        const node = find(id);
+        if (!node || !nodeVisible(node, view, 40 / k)) continue;
+        ctx.strokeStyle = palette.project[node.color];
+        ctx.beginPath();
+        ctx.arc(
+          node.x ?? 0,
+          node.y ?? 0,
+          Math.max(node.radius, minRadius) + (4 + p * 22) / k,
+          0,
+          Math.PI * 2,
+        );
+        ctx.stroke();
+      }
+    }
+  }
 }
 
 /** Labels in screen space: zoom independent and crisp. */
@@ -518,6 +657,7 @@ function drawLabels(
   dpr: number,
 ): void {
   const { k, now, palette } = frame;
+  const o = frame.opacity ?? 1;
   const toScreen = (node: BrainNode) => ({
     x: ((node.x ?? 0) * m.a + m.e) / dpr,
     y: ((node.y ?? 0) * m.d + m.f) / dpr,
@@ -542,7 +682,7 @@ function drawLabels(
       height: HUB_LABEL_HEIGHT,
     };
     hubBoxes.push(box);
-    ctx.globalAlpha = fade(hub, now);
+    ctx.globalAlpha = o * fade(hub, now);
     pill(ctx, box, palette);
     ctx.fillStyle = palette.project[hub.color];
     ctx.beginPath();
@@ -567,16 +707,20 @@ function drawLabels(
       radius: Math.max(card.radius * k, 1.3),
       width: measure(ctx, LABEL_FONT, text) + 18,
       height: LABEL_HEIGHT,
-      priority: card.degree + (card.id === frame.dragId ? 1000 : 0),
+      priority:
+        card.degree + (card.id === frame.dragId || card.id === frame.emphasis?.id ? 1000 : 0),
     });
   }
-  const boxes = placeLabels(candidates, { zoom: k, reserved: hubBoxes });
+  const boxes = placeLabels(candidates, {
+    zoom: frame.labels === 'all' ? Math.max(k, LABEL_MIN_ZOOM) : k,
+    reserved: hubBoxes,
+  });
   if (boxes.length > 0) {
     const cardById = new Map(scene.cards.map((card) => [card.id, card]));
     ctx.font = LABEL_FONT;
     for (const box of boxes) {
       const card = cardById.get(box.id);
-      ctx.globalAlpha = card ? fade(card, now) * (card.level === 'new' ? 0.8 : 1) : 1;
+      ctx.globalAlpha = o * (card ? fade(card, now) * (card.level === 'new' ? 0.8 : 1) : 1);
       pill(ctx, box, palette);
       ctx.fillStyle = palette.labelFg;
       ctx.fillText(texts.get(box.id) ?? '', box.x + box.width / 2, box.y + box.height / 2 + 0.5);
