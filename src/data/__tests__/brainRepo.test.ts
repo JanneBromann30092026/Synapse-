@@ -17,6 +17,8 @@ async function seed() {
     { front: 'Hund', back: 'dog' },
     { front: 'Katze', back: 'cat', notes: 'Tier' },
   ]);
+  // bulkCreate spaces createdAt by 1 ms from "now"; wait so the next batch sorts after it.
+  await new Promise((resolve) => setTimeout(resolve, 5));
   const [b1] = await cardsRepo.bulkCreate(b.id, [{ front: 'Cashflow', back: 'Zufluss' }]);
   await cardsRepo.bulkCreate(hidden.id, [{ front: 'Geheim', back: 'secret' }]);
   return { a, b, hidden, a1: a1!, a2: a2!, b1: b1! };
